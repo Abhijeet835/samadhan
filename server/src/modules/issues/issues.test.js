@@ -35,7 +35,9 @@ const issueBody = (overrides = {}) => ({
   description: 'The streetlight outside number 42 has been dead for two weeks, making the lane unsafe at night.',
   category: 'STREETLIGHT',
   location: {
-    coordinates: [77.5946, 12.9716],
+    // Spread reports kilometres apart so Phase 4 duplicate detection never
+    // blocks unrelated tests; duplicate tests set explicit coordinates.
+    coordinates: [77.5946 + (Math.random() - 0.5) * 0.4, 12.9716 + (Math.random() - 0.5) * 0.4],
     address: '42 MG Road',
     city: 'Bengaluru',
     state: 'Karnataka',

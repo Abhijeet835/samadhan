@@ -3,9 +3,10 @@ import { MapPin, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { formatPaise } from '@/features/wallet/money';
+import FundMeter from './FundMeter';
 import { CategoryBadge, StatusBadge } from './StatusBadge';
 
-export default function IssueCard({ issue }) {
+export default function IssueCard({ issue, thresholds }) {
   const { t, i18n } = useTranslation();
   const city = issue.location?.city || issue.location?.address;
 
@@ -48,6 +49,7 @@ export default function IssueCard({ issue }) {
             {t('issues.supporters', { count: issue.supporterCount })}
           </span>
         </div>
+        <FundMeter compact fundPaise={issue.fundPaise} thresholds={thresholds} />
       </div>
     </Link>
   );

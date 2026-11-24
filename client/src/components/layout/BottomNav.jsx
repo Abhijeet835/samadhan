@@ -1,4 +1,4 @@
-import { Home, List, Megaphone, Wallet } from 'lucide-react';
+import { Activity, Home, List, Megaphone, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -21,7 +21,7 @@ export default function BottomNav() {
       <div
         className={cn(
           'mx-auto grid max-w-md gap-1 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5',
-          isAuthenticated ? 'grid-cols-4' : 'grid-cols-3',
+          isAuthenticated ? 'grid-cols-5' : 'grid-cols-3',
         )}
       >
         <Link
@@ -50,6 +50,17 @@ export default function BottomNav() {
           <Megaphone className="h-5 w-5" aria-hidden="true" />
           <span className="w-full truncate">{t('nav.report')}</span>
         </Link>
+
+        {isAuthenticated && (
+          <Link
+            to="/my-activity"
+            className={cn(itemClass, location.pathname === '/my-activity' && 'bg-primary/10 text-primary')}
+            aria-current={location.pathname === '/my-activity' ? 'page' : undefined}
+          >
+            <Activity className="h-5 w-5" aria-hidden="true" />
+            <span className="w-full truncate">{t('nav.myActivity')}</span>
+          </Link>
+        )}
 
         {isAuthenticated && (
           <Link

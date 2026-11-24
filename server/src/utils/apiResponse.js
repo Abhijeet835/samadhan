@@ -6,11 +6,13 @@
  */
 
 export class ApiError extends Error {
-  constructor(message, statusCode = 500, code = 'INTERNAL_SERVER_ERROR') {
+  constructor(message, statusCode = 500, code = 'INTERNAL_SERVER_ERROR', details = null) {
     super(message);
     this.name = 'ApiError';
     this.statusCode = statusCode;
     this.code = code;
+    // Optional extra envelope fields (e.g. { existingIssue } on DUPLICATE_FOUND).
+    this.details = details;
     Error.captureStackTrace?.(this, ApiError);
   }
 }
@@ -22,12 +24,13 @@ export function sendSuccess(res, data = null, statusCode = 200) {
   });
 }
 
-export function sendError(res, { statusCode = 500, code = 'INTERNAL_SERVER_ERROR', message = 'Something went wrong.' } = {}) {
+export function sendError(res, { statusCode = 500, code = 'INTERNAL_SERVER_ERROR', message = 'Something went wrong.', details = null } = {}) {
   return res.status(statusCode).json({
     success: false,
     error: {
       code,
       message,
+      ...(details ?? {}),
     },
   });
 }

@@ -19,6 +19,7 @@ export const createIssueSchema = z.object({
     pincode: z.string().regex(/^\d{6}$/, 'Pincode must be 6 digits').optional().or(z.literal('')).default(''),
   }),
   idempotencyKey: z.string().min(8).max(100).trim(),
+  force: z.boolean().optional().default(false),
 });
 
 export const listIssuesQuerySchema = z.object({
@@ -37,4 +38,13 @@ export const transitionIssueSchema = z.object({
 
 export const issueIdParamSchema = z.object({
   issueId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid issue id'),
+});
+
+export const supportIssueSchema = z.object({
+  idempotencyKey: z.string().min(8).max(100).trim(),
+});
+
+export const paginationQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
 });

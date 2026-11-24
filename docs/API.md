@@ -25,6 +25,8 @@ All responses use the standard envelope.
 }
 ```
 
+The failure envelope may carry extra fields alongside `code` and `message` when an error needs to return data (e.g. `error.existingIssue` on `DUPLICATE_FOUND`). Existing codes are unchanged.
+
 CORS is restricted to `CLIENT_URL` (default `http://localhost:5173`). Protected endpoints require a `Bearer <JWT>` access token and are checked for role and resource ownership.
 
 ---
@@ -530,7 +532,7 @@ Public. Wizard bootstrap metadata.
 ```json
 {
   "success": true,
-  "data": { "categories": ["ROAD", "GARBAGE", "WATER", "STREETLIGHT", "SEWAGE", "ELECTRICITY", "PARK", "OTHER"], "reportFeePaise": 500, "maxPhotos": 3 }
+  "data": { "categories": ["ROAD", "GARBAGE", "WATER", "STREETLIGHT", "SEWAGE", "ELECTRICITY", "PARK", "OTHER"], "reportFeePaise": 500, "supportFeePaise": 100, "thresholds": { "tier1Paise": 20000, "tier2Paise": 50000 }, "maxPhotos": 3 }
 }
 ```
 
@@ -611,12 +613,32 @@ Protected (any authenticated user). Creates an issue and charges the report fee 
 |`location.coordinates`|[lng, lat]|Yes|GeoJSON point (2dsphere indexed)|
 |`location.address/city/state/pincode`|string|No|pincode must be 6 digits|
 |`idempotencyKey`|string|Yes|8–100 chars, unique per report intent|
+|`force`|boolean|No|`true` skips duplicate detection ("This is different" flow). Default `false`|
 
 **Errors**
 
 - `401 UNAUTHORIZED` — Not authenticated
 - `400 VALIDATION_ERROR` — Invalid body
 - `409 INSUFFICIENT_BALANCE` — Wallet cannot cover the report fee (nothing is created)
+- `409 DUPLICATE_FOUND` — An open issue of the same category exists within `settings.duplicateRadiusM` metres (default 100 m), reported in the last `settings.duplicateDays` days (default 30). Nothing is charged. The error carries `existingIssue`:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "DUPLICATE_FOUND",
+    "message": "A similar issue was already reported nearby.",
+    "existingIssue": {
+      "_id": "…", "title": "…", "category": "GARBAGE", "status": "ACTIVE",
+      "fundPaise": 600, "supporterCount": 2, "photos": ["first photo only"],
+      "distanceM": 42, "createdAt": "…",
+      "hasSupported": false, "isReporter": false, "canSupport": true
+    }
+  }
+}
+```
+
+Order of checks: idempotent replay first (a retry is never blocked by its own issue), then duplicate check (skipped when `force: true`), then the atomic transaction. Known limitation: two simultaneous reports at the same spot can both pass.
 
 ### `GET /api/issues/:issueId`
 
@@ -637,6 +659,7 @@ Public, but sends viewer context when an `Authorization` header is present (`opt
       "isReporter": true,
       "isAdmin": false,
       "hasSupported": true,
+      "canSupport": true,
       "canReopen": false
     }
   }
@@ -671,6 +694,96 @@ Protected. The **only** path to change issue status. Uses a conditional update a
 - `404 ISSUE_NOT_FOUND` — Issue does not exist
 - `409 INVALID_TRANSITION` — Transition not allowed from the current status (message includes `FROM → TO`)
 - `409 REOPEN_WINDOW_EXPIRED` — Reopen attempted more than 7 days after `resolvedAt`
+
+---
+
+## Support & activity (Phase 4)
+
+`canSupport` rule used everywhere: authenticated AND status in `ACTIVE / ACKNOWLEDGED / IN_PROGRESS` AND not already supported (the reporter always has a support row).
+
+### `POST /api/issues/:issueId/support`
+
+Protected. Paid +1 in ONE MongoDB transaction: verify supportable + not already supported → debit `settings.supportFeePaise` via `chargeWallet` (caller session) → `SUPPORT_FEE` ledger row (issueId set) → `IssueSupport` row storing `amountPaise` → conditional `$inc { fundPaise, supporterCount }` guarded by the current status. After commit, Phase 5 will call `checkTiers(issueId)` here.
+
+**Request Body**
+
+```json
+{ "idempotencyKey": "support:550e8400-e29b-41d4-a716-446655440000" }
+```
+
+**Response — 201 Created** (first processing; 200 with `idempotent: true` on replay)
+
+```json
+{
+  "success": true,
+  "data": {
+    "support": { "_id": "…", "issueId": "…", "userId": "…", "amountPaise": 100, "isReporter": false },
+    "issue": { "fundPaise": 600, "supporterCount": 2 },
+    "wallet": { "balancePaise": 14900 },
+    "idempotent": false
+  }
+}
+```
+
+**Errors**
+
+- `401 UNAUTHORIZED` — Not authenticated
+- `400 VALIDATION_ERROR` — Missing/invalid idempotencyKey (8–100 chars) or issueId
+- `404 ISSUE_NOT_FOUND` — Issue does not exist
+- `409 ISSUE_NOT_SUPPORTABLE` — Status is RESOLVED / CLOSED / REJECTED (or changed concurrently)
+- `409 ALREADY_SUPPORTED` — One support per user per issue; nothing charged
+- `409 INSUFFICIENT_BALANCE` — Nothing created or changed
+- `409 IDEMPOTENCY_KEY_CONFLICT` — Key already used by a different user or issue
+
+Race safety: concurrent double-taps (same OR different keys) produce exactly one charge; a duplicate-key abort rolls back the debit.
+
+### `GET /api/issues/:issueId/supporters`
+
+Public (optionalAuth for REJECTED visibility). Paginated supporter list, privacy-safe: `displayName` is "FirstName L." — never email or phone. REJECTED issues follow the detail visibility rule (reporter/admin only).
+
+**Query** — `page` (≥1, default 1), `limit` (1–50, default 20).
+
+```json
+{
+  "success": true,
+  "data": {
+    "supporters": [
+      { "displayName": "Asha V.", "supportedAt": "2026-11-24T16:41:45.426Z", "isReporter": true }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 2, "totalPages": 1 }
+  }
+}
+```
+
+**Errors** — `400 VALIDATION_ERROR`, `404 ISSUE_NOT_FOUND`
+
+### `GET /api/issues/mine`
+
+Protected. Issues I reported, newest first, paginated (`page`, `limit` 1–50 default 20). Includes REJECTED — reporters may see their own rejected issues. Registered before `/:issueId` so the param route never swallows it.
+
+**Response** — `{ issues: [ { _id, title, category, status, fundPaise, supporterCount, photos, createdAt } ], pagination }`
+
+**Errors** — `401 UNAUTHORIZED`
+
+### `GET /api/issues/mine/supported`
+
+Protected. Issues I supported (including my own reports), newest first, paginated, strictly scoped to the caller.
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "supported": [
+      { "issue": { "_id": "…", "title": "…", "category": "GARBAGE", "status": "ACTIVE", "fundPaise": 600, "supporterCount": 2 }, "amountPaise": 100, "supportedAt": "…", "isReporter": false }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  }
+}
+```
+
+**Errors** — `401 UNAUTHORIZED`
 
 ---
 
@@ -723,6 +836,10 @@ Protected. Uploads one image to Cloudinary (`folder: samadhan/issues`) via multe
 |400|`IDEMPOTENCY_KEY_REQUIRED`|Missing idempotencyKey on a wallet charge|
 |500|`SETTING_NOT_FOUND`|Settings key missing (ensureDefaultSettings not run)|
 |404|`ISSUE_NOT_FOUND`|Issue does not exist or is not visible to the viewer|
+|409|`DUPLICATE_FOUND`|Similar open issue nearby; error carries `existingIssue`|
+|409|`ISSUE_NOT_SUPPORTABLE`|Issue status does not allow support|
+|409|`ALREADY_SUPPORTED`|User already supported this issue|
+|409|`IDEMPOTENCY_KEY_CONFLICT`|Key already used for a different user/issue|
 |409|`INVALID_TRANSITION`|Status transition not allowed from the current status|
 |409|`REOPEN_WINDOW_EXPIRED`|Reopen attempted more than 7 days after resolution|
 |400|`IMAGE_REQUIRED`|Upload request contained no file|

@@ -66,3 +66,58 @@ export async function transition(req, res, next) {
     return next(error);
   }
 }
+
+/**
+ * POST /api/issues/:issueId/support — protected paid +1
+ */
+export async function support(req, res, next) {
+  try {
+    const result = await issueService.supportIssue({
+      issueId: req.params.issueId,
+      userId: req.user.userId,
+      idempotencyKey: req.body.idempotencyKey,
+    });
+    return sendSuccess(res, result, result.idempotent ? 200 : 201);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * GET /api/issues/:issueId/supporters — public, privacy-safe supporter list
+ */
+export async function supporters(req, res, next) {
+  try {
+    return sendSuccess(
+      res,
+      await issueService.listSupporters(req.params.issueId, req.user, req.validated.query),
+    );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * GET /api/issues/mine — protected, issues I reported
+ */
+export async function mine(req, res, next) {
+  try {
+    return sendSuccess(res, await issueService.listMyIssues(req.user.userId, req.validated.query));
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * GET /api/issues/mine/supported — protected, issues I supported
+ */
+export async function mineSupported(req, res, next) {
+  try {
+    return sendSuccess(
+      res,
+      await issueService.listMySupported(req.user.userId, req.validated.query),
+    );
+  } catch (error) {
+    return next(error);
+  }
+}

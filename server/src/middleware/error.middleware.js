@@ -27,6 +27,7 @@ export function errorHandler(error, req, res, next) {
   let statusCode = 500;
   let code = 'INTERNAL_SERVER_ERROR';
   let message = 'Something went wrong. Please try again.';
+  let details = null;
 
   if (error instanceof ZodError || error?.name === 'ZodError') {
     statusCode = 400;
@@ -36,6 +37,7 @@ export function errorHandler(error, req, res, next) {
     statusCode = error.statusCode;
     code = error.code;
     message = error.message;
+    details = error.details;
   } else if (error?.type === 'entity.parse.failed') {
     statusCode = 400;
     code = 'INVALID_JSON';
@@ -61,5 +63,5 @@ export function errorHandler(error, req, res, next) {
     console.error(error);
   }
 
-  return sendError(res, { statusCode, code, message });
+  return sendError(res, { statusCode, code, message, details });
 }

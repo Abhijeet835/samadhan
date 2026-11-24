@@ -3,8 +3,9 @@ import mongoose from 'mongoose';
 import Issue, { ISSUE_CATEGORIES } from './issue.model.js';
 import IssueSupport from './issueSupport.model.js';
 import IssueUpdate from './issueUpdate.model.js';
+import Wallet from '../wallet/wallet.model.js';
 import WalletTxn from '../wallet/walletTxn.model.js';
-import { chargeWallet, getSetting } from '../wallet/wallet.service.js';
+import { chargeWallet, getEffectiveTierThresholds, getSetting } from '../wallet/wallet.service.js';
 import { ApiError } from '../../utils/apiResponse.js';
 
 /**
@@ -22,6 +23,41 @@ const ALLOWED_TRANSITIONS = Object.freeze({
 
 const ADMIN_ONLY = ['ACKNOWLEDGED', 'IN_PROGRESS', 'REJECTED', 'CLOSED'];
 const REOPEN_WINDOW_DAYS = 7;
+const SUPPORTABLE_STATUSES = ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'];
+
+/**
+ * Nearest open issue of the SAME category within settings.duplicateRadiusM
+ * metres, reported in the last settings.duplicateDays days. $geoNear must be
+ * the first aggregation stage. Known limitation: two simultaneous reports at
+ * the same spot can both pass (accepted for the prototype).
+ */
+export async function findDuplicate({ category, coordinates }) {
+  const [radiusM, days] = await Promise.all([
+    getSetting('duplicateRadiusM'),
+    getSetting('duplicateDays'),
+  ]);
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const [hit] = await Issue.aggregate([
+    {
+      $geoNear: {
+        near: { type: 'Point', coordinates },
+        distanceField: 'distanceM',
+        spherical: true,
+        key: 'location',
+        maxDistance: radiusM,
+        query: {
+          category,
+          status: { $nin: ['CLOSED', 'REJECTED'] },
+          createdAt: { $gte: cutoff },
+        },
+      },
+    },
+    { $limit: 1 },
+  ]);
+
+  return hit ?? null;
+}
 
 /**
  * Report a Global issue. ONE transaction: debit reportFeePaise (from settings)
@@ -31,13 +67,48 @@ const REOPEN_WINDOW_DAYS = 7;
  * A replayed idempotencyKey returns the original issue without charging again.
  */
 export async function createIssue({ reporterId, data }) {
-  const { idempotencyKey, ...issueData } = data;
+  const { idempotencyKey, force, ...issueData } = data;
 
   const existingTxn = await WalletTxn.findOne({ idempotencyKey });
   if (existingTxn?.issueId) {
     const existing = await Issue.findById(existingTxn.issueId);
     if (existing) {
       return { issue: existing.toObject(), idempotent: true };
+    }
+  }
+
+  // Duplicate check runs AFTER the idempotent replay so a retry is never
+  // blocked by the issue it created itself.
+  if (force !== true) {
+    const duplicate = await findDuplicate({
+      category: issueData.category,
+      coordinates: issueData.location.coordinates,
+    });
+    if (duplicate) {
+      const viewerSupport = await IssueSupport.findOne({
+        issueId: duplicate._id,
+        userId: reporterId,
+      }).lean();
+      const existingIssue = {
+        _id: duplicate._id,
+        title: duplicate.title,
+        category: duplicate.category,
+        status: duplicate.status,
+        fundPaise: duplicate.fundPaise,
+        supporterCount: duplicate.supporterCount,
+        photos: duplicate.photos?.length ? [duplicate.photos[0]] : [],
+        distanceM: Math.round(duplicate.distanceM),
+        createdAt: duplicate.createdAt,
+        hasSupported: !!viewerSupport,
+        isReporter: String(duplicate.reporterId) === String(reporterId),
+        canSupport: !viewerSupport && SUPPORTABLE_STATUSES.includes(duplicate.status),
+      };
+      throw new ApiError(
+        'A similar issue was already reported nearby.',
+        409,
+        'DUPLICATE_FOUND',
+        { existingIssue },
+      );
     }
   }
 
@@ -114,6 +185,130 @@ function pickAddress(location) {
 }
 
 /**
+ * Paid +1 support. ONE transaction: verify supportable + not already
+ * supported → debit supportFeePaise (settings) → SUPPORT_FEE ledger row →
+ * IssueSupport row (stores amountPaise so rejection refunds stay exact) →
+ * conditional $inc on fundPaise/supporterCount guarded by the current status.
+ */
+export async function supportIssue({ issueId, userId, idempotencyKey }) {
+  const supportFeePaise = await getSetting('supportFeePaise');
+
+  const replayResult = async () => {
+    const txn = await WalletTxn.findOne({ idempotencyKey }).lean();
+    if (!txn) return null;
+    const sameRequest =
+      txn.type === 'SUPPORT_FEE' &&
+      String(txn.userId) === String(userId) &&
+      String(txn.issueId ?? '') === String(issueId);
+    if (!sameRequest) {
+      throw new ApiError(
+        'This idempotencyKey was already used for a different request.',
+        409,
+        'IDEMPOTENCY_KEY_CONFLICT',
+      );
+    }
+    const [support, issue, wallet] = await Promise.all([
+      IssueSupport.findOne({ issueId, userId }).lean(),
+      Issue.findById(issueId).select('fundPaise supporterCount').lean(),
+      Wallet.findOne({ userId }).lean(),
+    ]);
+    return {
+      support,
+      issue: { fundPaise: issue?.fundPaise ?? 0, supporterCount: issue?.supporterCount ?? 0 },
+      wallet: { balancePaise: wallet?.balancePaise ?? 0 },
+      idempotent: true,
+    };
+  };
+
+  // Fast path: this key was already processed (or belongs to someone else).
+  const alreadyProcessed = await replayResult();
+  if (alreadyProcessed) return alreadyProcessed;
+
+  let result;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const issue = await Issue.findById(issueId).session(session);
+      if (!issue) {
+        throw new ApiError('Issue not found.', 404, 'ISSUE_NOT_FOUND');
+      }
+      if (!SUPPORTABLE_STATUSES.includes(issue.status)) {
+        throw new ApiError(
+          `Issues with status ${issue.status} cannot be supported.`,
+          409,
+          'ISSUE_NOT_SUPPORTABLE',
+        );
+      }
+
+      const existing = await IssueSupport.findOne({ issueId, userId }).session(session);
+      if (existing) {
+        throw new ApiError('You have already supported this issue.', 409, 'ALREADY_SUPPORTED');
+      }
+
+      const { wallet } = await chargeWallet({
+        userId,
+        type: 'SUPPORT_FEE',
+        amountPaise: -supportFeePaise,
+        issueId,
+        idempotencyKey,
+        session,
+      });
+
+      const [support] = await IssueSupport.create(
+        [{ issueId, userId, amountPaise: supportFeePaise, isReporter: false }],
+        { session },
+      );
+
+      // Conditional on the current status so a concurrent transition cannot
+      // corrupt the fund counters.
+      const updated = await Issue.findOneAndUpdate(
+        { _id: issueId, status: issue.status },
+        { $inc: { fundPaise: supportFeePaise, supporterCount: 1 } },
+        { returnDocument: 'after', session },
+      );
+      if (!updated) {
+        throw new ApiError(
+          'Issue status changed concurrently. Please refresh.',
+          409,
+          'ISSUE_NOT_SUPPORTABLE',
+        );
+      }
+
+      result = {
+        support,
+        issue: { fundPaise: updated.fundPaise, supporterCount: updated.supporterCount },
+        wallet: { balancePaise: wallet.balancePaise },
+        idempotent: false,
+      };
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      // Lost a race: either the same key was double-tapped (return the
+      // winner's result) or the (issueId, userId) support row already exists.
+      const raced = await replayResult();
+      if (raced) return raced;
+      const support = await IssueSupport.findOne({ issueId, userId }).lean();
+      if (support) {
+        throw new ApiError('You have already supported this issue.', 409, 'ALREADY_SUPPORTED');
+      }
+    }
+    if (error instanceof ApiError && error.code === 'ALREADY_SUPPORTED') {
+      // A transaction retry may land here after the same-key winner committed;
+      // a replay of that key must return the idempotent result, not a 409.
+      const raced = await replayResult();
+      if (raced) return raced;
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+
+  // Phase 5: checkTiers(issueId) is called here
+
+  return result;
+}
+
+/**
  * Public feed with filters, search and sorting. REJECTED spam never appears.
  */
 export async function listIssues(query) {
@@ -184,6 +379,7 @@ export async function getIssueDetail(issueId, viewer) {
       isReporter: viewer ? reporterId === String(viewer.userId) : false,
       isAdmin,
       hasSupported: !!viewerSupport,
+      canSupport: !!viewer && SUPPORTABLE_STATUSES.includes(issue.status) && !viewerSupport,
       canReopen:
         issue.status === 'RESOLVED' &&
         reporterId === String(viewer?.userId) &&
@@ -302,12 +498,117 @@ function validateTransition(issue, newStatus, actor) {
 }
 
 /**
- * Public metadata for the report wizard: categories and the fee from settings.
+ * Privacy-safe supporter list: "FirstName L." only — never email or phone.
+ * REJECTED issues follow the same visibility rule as the detail endpoint.
+ */
+export async function listSupporters(issueId, viewer, { page = 1, limit = 20 } = {}) {
+  const issue = await Issue.findById(issueId).select('status reporterId').lean();
+  if (!issue) {
+    throw new ApiError('Issue not found.', 404, 'ISSUE_NOT_FOUND');
+  }
+  const isAdmin = viewer?.role === 'ADMIN';
+  const isReporter = String(issue.reporterId) === String(viewer?.userId);
+  if (issue.status === 'REJECTED' && !isAdmin && !isReporter) {
+    throw new ApiError('Issue not found.', 404, 'ISSUE_NOT_FOUND');
+  }
+
+  const filter = { issueId };
+  const [supports, total] = await Promise.all([
+    IssueSupport.find(filter)
+      .sort({ createdAt: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('userId', 'name')
+      .lean(),
+    IssueSupport.countDocuments(filter),
+  ]);
+
+  return {
+    supporters: supports.map((support) => ({
+      displayName: toDisplayName(support.userId?.name),
+      supportedAt: support.createdAt,
+      isReporter: support.isReporter,
+    })),
+    pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+  };
+}
+
+function toDisplayName(name) {
+  const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'Anonymous';
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}
+
+/**
+ * Issues I reported, newest first. Includes REJECTED — the reporter may see
+ * their own rejected issues (same rule as the detail endpoint).
+ */
+export async function listMyIssues(userId, { page = 1, limit = 20 } = {}) {
+  const filter = { reporterId: userId };
+  const [issues, total] = await Promise.all([
+    Issue.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .select('title category status fundPaise supporterCount photos createdAt')
+      .lean(),
+    Issue.countDocuments(filter),
+  ]);
+
+  return {
+    issues,
+    pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+  };
+}
+
+/**
+ * Issues I supported (including my own reports), newest first, strictly
+ * scoped to the logged-in user.
+ */
+export async function listMySupported(userId, { page = 1, limit = 20 } = {}) {
+  const filter = { userId };
+  const [supports, total] = await Promise.all([
+    IssueSupport.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate({
+        path: 'issueId',
+        select: 'title category status fundPaise supporterCount photos createdAt',
+      })
+      .lean(),
+    IssueSupport.countDocuments(filter),
+  ]);
+
+  return {
+    supported: supports
+      .filter((support) => support.issueId)
+      .map((support) => ({
+        issue: support.issueId,
+        amountPaise: support.amountPaise,
+        supportedAt: support.createdAt,
+        isReporter: support.isReporter,
+      })),
+    pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+  };
+}
+
+/**
+ * Public metadata for the report wizard: categories, fees and thresholds —
+ * all from settings (demoMode-aware).
  */
 export async function getIssueMeta() {
+  const [reportFeePaise, supportFeePaise, thresholds] = await Promise.all([
+    getSetting('reportFeePaise'),
+    getSetting('supportFeePaise'),
+    getEffectiveTierThresholds(),
+  ]);
   return {
     categories: [...ISSUE_CATEGORIES],
-    reportFeePaise: await getSetting('reportFeePaise'),
+    reportFeePaise,
+    supportFeePaise,
+    thresholds,
     maxPhotos: 3,
   };
 }

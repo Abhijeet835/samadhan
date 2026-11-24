@@ -12,6 +12,7 @@ import { formatPaise } from '@/features/wallet/money';
 import { ISSUE_CATEGORIES } from '@/features/global/constants';
 import { uploadPhoto } from '@/features/global/uploadPhoto';
 import { forwardGeocode, parseAddressParts, reverseGeocode } from '@/features/global/geocode';
+import DuplicateDialog from '@/features/global/DuplicateDialog';
 
 const STEPS = ['details', 'location', 'photos', 'confirm'];
 
@@ -30,6 +31,7 @@ export default function ReportPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [insufficient, setInsufficient] = useState(false);
+  const [duplicate, setDuplicate] = useState(null);
 
   const [form, setForm] = useState({
     title: '',
@@ -127,7 +129,7 @@ export default function ReportPage() {
     }
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(force = false) {
     if (submitting) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -146,13 +148,16 @@ export default function ReportPage() {
           pincode: form.pincode.trim(),
         },
         idempotencyKey: idempotencyKeyRef.current,
+        force,
       };
       const response = await api.post('/issues', payload);
       toast.success(t('report.success'));
       navigate(`/issues/${response.data.issue._id}`);
     } catch (error) {
       const code = error.response?.data?.error?.code;
-      if (code === 'INSUFFICIENT_BALANCE') {
+      if (code === 'DUPLICATE_FOUND') {
+        setDuplicate(error.response.data.error.existingIssue);
+      } else if (code === 'INSUFFICIENT_BALANCE') {
         setInsufficient(true);
         setSubmitError(t('report.insufficient'));
       } else {
@@ -414,7 +419,7 @@ export default function ReportPage() {
                   </Link>
                 )}
 
-                <Button type="button" onClick={handleSubmit} disabled={submitting} className="w-full gap-2">
+                <Button type="button" onClick={() => handleSubmit()} disabled={submitting} className="w-full gap-2">
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {!submitting && <Check className="h-4 w-4" />}
                   {submitting ? t('common.loading') : t('report.confirm.submit')}
@@ -435,6 +440,16 @@ export default function ReportPage() {
             </div>
           </CardContent>
         </Card>
+
+        <DuplicateDialog
+          duplicate={duplicate}
+          onClose={() => setDuplicate(null)}
+          onForce={() => {
+            setDuplicate(null);
+            handleSubmit(true);
+          }}
+          forcing={submitting}
+        />
       </div>
     </div>
   );

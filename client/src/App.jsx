@@ -10,6 +10,7 @@ import WalletPage from '@/pages/WalletPage';
 import IssuesPage from '@/pages/IssuesPage';
 import IssueDetailPage from '@/pages/IssueDetailPage';
 import ReportPage from '@/pages/ReportPage';
+import MyActivityPage from '@/pages/MyActivityPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/context/AuthContext';
 
@@ -58,6 +59,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <WalletPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-activity"
+              element={
+                <ProtectedRoute>
+                  <MyActivityPage />
                 </ProtectedRoute>
               }
             />

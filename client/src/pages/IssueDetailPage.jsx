@@ -1,20 +1,25 @@
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { ArrowLeft, MapPin, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, MapPin, Wallet } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CategoryBadge, StatusBadge } from '@/features/global/StatusBadge';
 import Timeline from '@/features/global/Timeline';
 import TransitionPanel from '@/features/global/TransitionPanel';
+import FundMeter from '@/features/global/FundMeter';
+import SupportPanel from '@/features/global/SupportPanel';
+import SupportersList from '@/features/global/SupportersList';
 import { useIssueDetail } from '@/features/global/useIssueDetail';
-import { formatPaise, formatTxnDate } from '@/features/wallet/money';
+import { useIssueMeta } from '@/features/global/useIssueMeta';
+import { formatTxnDate } from '@/features/wallet/money';
 
 export default function IssueDetailPage() {
   const { issueId } = useParams();
   const { t, i18n } = useTranslation();
-  const { data, loading, error, transition } = useIssueDetail(issueId);
+  const { data, loading, error, transition, reload, applySupport } = useIssueDetail(issueId);
+  const meta = useIssueMeta();
 
   async function handleTransition(status, note) {
     const result = await transition(status, note);
@@ -51,7 +56,7 @@ export default function IssueDetailPage() {
   const location = issue.location ?? {};
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8">
+    <div className="min-h-screen bg-slate-50 py-8 pb-36 md:pb-8">
       <div className="mx-auto max-w-3xl px-4">
         <Link
           to="/issues"
@@ -113,22 +118,23 @@ export default function IssueDetailPage() {
           <div className="space-y-6">
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm font-medium text-slate-500">{t('issues.fundLabel')}</p>
-                <p className="mt-1 text-3xl font-bold text-slate-900 tabular-nums">
-                  {formatPaise(issue.fundPaise, i18n.language)}
-                </p>
-                <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-500">
-                  <Users className="h-4 w-4" aria-hidden="true" />
-                  {t('issues.supporters', { count: issue.supporterCount })}
-                </p>
-                {viewer.isAuthenticated && !viewer.hasSupported && (
-                  <p className="mt-3 text-xs text-slate-400">{t('issues.detail.supportSoon')}</p>
-                )}
-                {viewer.isReporter && (
-                  <p className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
-                    {t('issues.detail.youReporter')}
-                  </p>
-                )}
+                <FundMeter
+                  fundPaise={issue.fundPaise}
+                  supporterCount={issue.supporterCount}
+                  thresholds={meta?.thresholds}
+                />
+                <div className="mt-4">
+                  <SupportPanel issue={issue} viewer={viewer} onSupported={applySupport} onReload={reload} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('support.supportersTitle')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SupportersList key={`${issue._id}-${issue.supporterCount}`} issueId={issue._id} />
               </CardContent>
             </Card>
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import IssueCard from '@/features/global/IssueCard';
 import IssueFilters from '@/features/global/IssueFilters';
 import { useIssuesFeed } from '@/features/global/useIssuesFeed';
+import { useIssueMeta } from '@/features/global/useIssueMeta';
 
 function FeedSkeleton() {
   return (
@@ -20,6 +21,7 @@ function FeedSkeleton() {
 export default function IssuesPage() {
   const { t } = useTranslation();
   const { issues, pagination, filters, setFilters, loading } = useIssuesFeed();
+  const meta = useIssueMeta();
 
   return (
     <div className="min-h-screen bg-slate-50 py-8">
@@ -53,7 +55,7 @@ export default function IssuesPage() {
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {issues.map((issue) => (
-                <IssueCard key={issue._id} issue={issue} />
+                <IssueCard key={issue._id} issue={issue} thresholds={meta?.thresholds} />
               ))}
             </div>
 

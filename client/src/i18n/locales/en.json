@@ -12,7 +12,10 @@
     "preview": "Preview",
     "comingSoon": "Full experience coming soon",
     "learnMore": "Learn more",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "close": "Close",
+    "retry": "Retry",
+    "loadMore": "Load more"
   },
   "nav": {
     "main": "Main navigation",
@@ -31,7 +34,8 @@
     "profile": "Profile",
     "wallet": "Wallet",
     "feed": "Issues",
-    "report": "Report"
+    "report": "Report",
+    "myActivity": "My Activity"
   },
   "hero": {
     "eyebrow": "Civic problems + trusted local help",
@@ -360,5 +364,56 @@
     "openWallet": "Open wallet",
     "submitFailed": "Could not publish your issue. Please try again.",
     "success": "Issue reported! Your report fee has been deducted."
+  },
+  "meter": {
+    "aria": "Community fund progress",
+    "tier1": "Spotlight · {{amount}}",
+    "tier2": "Escalate · {{amount}}",
+    "progress": "{{raised}} of {{target}} to Spotlight",
+    "tier1Reached": "Spotlight threshold reached",
+    "bothReached": "Both thresholds reached"
+  },
+  "support": {
+    "cta": "Support for {{amount}}",
+    "loginToSupport": "Login to support",
+    "youSupported": "You supported ✓",
+    "notSupportable": "This issue can no longer be supported in its current status.",
+    "dialogTitle": "Support this issue",
+    "dialogSubtitle": "Add your +1 to \"{{title}}\" — every contribution moves it closer to action.",
+    "feeLabel": "Support fee (simulated)",
+    "balanceLabel": "Your balance",
+    "afterLabel": "Balance after support",
+    "confirm": "Pay & support",
+    "pending": "Supporting…",
+    "success": "Your +1 is in! Thank you.",
+    "failed": "Support failed. Please try again.",
+    "alreadySupported": "You already supported this issue",
+    "supportersTitle": "Supporters",
+    "noSupporters": "No supporters yet — be the first!",
+    "supportersLoadFailed": "Could not load supporters.",
+    "reporterBadge": "Reporter"
+  },
+  "duplicate": {
+    "title": "Similar issue already exists",
+    "subtitle": "An issue in this category was already reported about {{distance}} m from here. Supporting it makes it stronger.",
+    "supportCta": "Support for {{amount}}",
+    "forceCta": "This is different",
+    "viewCta": "View issue",
+    "cancel": "Cancel"
+  },
+  "myActivity": {
+    "title": "My Activity",
+    "subtitle": "Issues you reported and supported",
+    "tab": {
+      "reported": "Reported",
+      "supported": "Supported"
+    },
+    "empty": {
+      "reported": "You haven't reported any issues yet",
+      "supported": "You haven't supported any issues yet"
+    },
+    "contributed": "You gave {{amount}}",
+    "loadFailed": "Could not load your activity.",
+    "browseCta": "Browse issues"
   }
 }

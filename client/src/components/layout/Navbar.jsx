@@ -32,6 +32,14 @@ export default function Navbar() {
           >
             {t('nav.report')}
           </Link>
+          {isAuthenticated && (
+            <Link
+              to="/my-activity"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {t('nav.myActivity')}
+            </Link>
+          )}
           <a
             href="#how-it-works"
             className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

@@ -8,13 +8,13 @@
 
 |Item|Value|
 |---|---|
-|**Phases complete**|0, 1, 2, 3|
-|**Next phase**|4 — Paid +1 support & 100 m duplicate detection|
-|**Server tests**|29/29 passing (`cd server && npm test`: 15 wallet + 14 issues)|
-|**i18n parity**|`en.json` / `hi.json` 282/282 keys|
+|**Phases complete**|0, 1, 2, 3, 4|
+|**Next phase**|5 — Tier engine & dispatch (`checkTiers` hook is marked in `supportIssue`)|
+|**Server tests**|53/53 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate)|
+|**i18n parity**|`en.json` / `hi.json` 325/325 keys|
 |**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
 |**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
-|**Git**|One commit per phase on a `phase-N` branch; merge to `main` after manual testing|
+|**Git**|Phases 2–3 committed on `main` (`f8db51a`); Phase 4 uncommitted pending manual testing|
 
 **If you are a new AI session resuming this project:** read `AGENTS.md` → `docs/CONTEXT.md` → this file → `docs/API.md`. Build only the next phase. Do not refactor earlier phases except to fix a documented bug.
 
@@ -260,27 +260,70 @@
 
 ### Known Gaps & Open Decisions (Phase 3)
 
-- **Not built:** `GET /api/issues/mine` and a "My Reports" page. Reporters currently reach their issues via the feed or the wallet ledger. Add in a later phase if time allows.
+- ~~**Not built:** `GET /api/issues/mine` and a "My Reports" page.~~ Closed in Phase 4: `/mine`, `/mine/supported` and the `/my-activity` page.
 - **Lifecycle vs CONTEXT.md §6:** the implementation lets an admin `REJECT` from any non-terminal status, while §6 lists `REJECTED` only from `ACTIVE`. Decide one way and update the other (CONTEXT.md or `transitionIssue`) before Phase 5.
 - **Manual `CLOSED`:** admins close resolved issues by hand until the Phase 5 cron (auto-close after 7 days).
 - **Rejection refunds** are done; taking down social posts on rejection arrives with Phase 6.
-- **Location input** is geolocation or manual coordinates + address. Map picker arrives in Phase 8.
+- **Location input** is now address-first: "Use my location" reverse-geocodes via OSM Nominatim and autofills address/city/state/pincode; typed addresses are forward-geocoded on Next. No manual lat/lng fields. Map picker arrives in Phase 8.
 - **Photos** are optional; without `CLOUDINARY_*` env vars the API returns `503 CLOUDINARY_NOT_CONFIGURED` and the wizard continues.
 - **Tiers:** `tier` / `tiersReached` fields exist but nothing writes them until Phase 5.
 
 ---
 
-## Phase 4: Support & Duplicate Detection (Planned)
+## Phase 4: Support & Duplicate Detection ✅
 
-**Reuse from earlier phases:** `chargeWallet({ ..., session })`, `issueSupports` (unique `(issueId, userId)`), `settings.supportFeePaise`, `settings.duplicateRadiusM` / `duplicateDays`, `transitionIssue`.
+**Completed:** 2026-11-24
 
-- [ ] 100 m duplicate detection with `$geoNear` (same category, not CLOSED/REJECTED, last 30 days, skipped when `force === true`); HTTP 409 `DUPLICATE_FOUND` with `existingIssue`
-- [ ] Wire duplicate check into `POST /api/issues` and the report wizard ("Support for ₹1" / "This is different")
-- [ ] Paid +1 support in ONE transaction: no prior support → balance check → debit → `SUPPORT_FEE` txn → insert support → increment `fundPaise` + `supporterCount`; idempotent
-- [ ] Live fund progress meter (toward Tier 1 / Tier 2 thresholds from settings, demo mode aware)
-- [ ] Support history
-- [ ] Tests: double-support blocked, concurrent supports keep `fundPaise` exact, insufficient balance leaves no trace, duplicate detection radius
-- [ ] Do NOT build tier side effects here (`checkTiers` is Phase 5)
+### Backend
+
+- [x] `findDuplicate({ category, coordinates })` in `issue.service.js`: `$geoNear` first stage (spherical, key `location`, `distanceField: 'distanceM'`), `maxDistance = settings.duplicateRadiusM`, query = same category + status `$nin [CLOSED, REJECTED]` + `createdAt >= now − settings.duplicateDays`; both values read from settings
+- [x] Wired into `POST /api/issues` with optional `force` boolean (Zod). Order: idempotent replay FIRST (a retry is never blocked by its own issue) → duplicate check (skipped when `force === true`) → existing atomic transaction unchanged
+- [x] `409 DUPLICATE_FOUND` carries `error.existingIssue` = { _id, title, category, status, fundPaise, supporterCount, photos (first only), distanceM (rounded), createdAt, hasSupported, isReporter, canSupport }. Nothing charged or written. `ApiError` gained an optional `details` argument; the envelope stays `{ success:false, error:{ code, message, …details } }` (backward compatible)
+- [x] `supportIssue({ issueId, userId, idempotencyKey })` + `POST /api/issues/:issueId/support`: supportable statuses ACTIVE/ACKNOWLEDGED/IN_PROGRESS only (`409 ISSUE_NOT_SUPPORTABLE`); one support per user (`409 ALREADY_SUPPORTED`, reporter included); fee from `settings.supportFeePaise`; ONE transaction via caller-session `chargeWallet` → SUPPORT_FEE txn (issueId set) → IssueSupport row storing `amountPaise` (rejection refunds stay exact) → conditional `$inc { fundPaise, supporterCount }` guarded by current status
+- [x] Idempotent replay → 200 `idempotent:true`; key belonging to another user/issue → `409 IDEMPOTENCY_KEY_CONFLICT`; duplicate-key race on `(issueId, userId)` rolls back the debit and maps to ALREADY_SUPPORTED; same-key race returns the winner's result (also on transaction retry)
+- [x] Response 201: `{ support, issue:{ fundPaise, supporterCount }, wallet:{ balancePaise }, idempotent }`. After commit only the comment `// Phase 5: checkTiers(issueId) is called here` — no tier side effects
+- [x] Read endpoints (registered BEFORE `/:issueId`; route-order test added): `/meta` now also returns `supportFeePaise` + `thresholds` via `getEffectiveTierThresholds()` (demoMode-aware); detail `viewer.canSupport`; `GET /:issueId/supporters` (public, paginated, "FirstName L." only, REJECTED visibility = detail rule); `GET /mine` (protected, includes REJECTED); `GET /mine/supported` (protected, { issue, amountPaise, supportedAt, isReporter })
+
+### Frontend
+
+- [x] `FundMeter` (full + compact): gradient progress toward Tier 1/Tier 2 from `/meta`, threshold markers, "₹X of ₹Y to Spotlight", "threshold reached" states only — no campaign claims; compact fund bar added to `IssueCard`
+- [x] Live updates: `useIssueDetail` polls every 10 s, pauses when `document.visibilityState === 'hidden'`, refreshes on visibility regain, cleans up on unmount; silent polls keep last good data on error
+- [x] `SupportPanel`: fee/balance/balance-after dialog, ONE idempotencyKey per dialog session reused across retries, disabled while pending, instant meter + balance update from response + toast; states: logged out → "Login to support" (returns to the issue after login), reporter → "You reported this", supported → "You supported ✓", unsupportable → short reason, insufficient → inline + wallet link; sticky bottom action bar on mobile
+- [x] `DuplicateDialog` in the report wizard confirm step: shows existing issue (title/category/status/distance/fund/supporters); "Support for ₹1" only when `canSupport` (hidden for reporter/supporter) → supports then navigates; "This is different" → resubmits with `force:true` and the SAME idempotencyKey; "View issue" / "Cancel"
+- [x] `SupportersList` on the detail page with "Load more"; `/my-activity` page (protected) with Reported/Supported tabs, contribution amounts, skeletons/empty/error+retry; nav links in Navbar + BottomNav (authenticated only)
+- [x] `support.*`, `duplicate.*`, `meter.*`, `myActivity.*` + `nav.myActivity`, `common.close/retry/loadMore` added to BOTH locales — parity 325/325
+
+### Tests
+
+- [x] 24 new tests in `support.test.js` (53/53 total): duplicate radius/category/CLOSED/REJECTED/age/force/replay-not-self-blocked/settings-radius; support happy path, settings fee, insufficient-no-trace, already-supported (reporter + supporter), unsupportable, replay, key conflict, concurrent same-key AND different-key double-taps (exactly one charge), 10 concurrent supporters (fund = 500 + 10×100, count 11, 10 txns), rejection refunds everyone; route order, privacy (no email/phone), scoping, 401s, `viewer.canSupport`; ledger invariant sum(txns) === balance for every user
+- [x] Existing `issues.test.js` helper now jitters coordinates so unrelated tests never trigger duplicate detection
+
+### Verification
+
+- [x] Client production build passes; both dev servers running
+- [x] Browser-tested with TWO accounts: reporter view (meter, "You reported this", supporters), supporter flow (dialog −₹1, ₹50→₹49, instant ₹5→₹6 meter, "You supported ✓", "Priya S." in list), duplicate dialog (0 m, support option correctly hidden for an existing supporter), "This is different" force-create, My Activity both tabs, full Hindi UI
+
+### Known Gaps & Open Decisions (Phase 4)
+
+- **Duplicate race:** two simultaneous reports at the same spot can both pass the check (accepted limitation, documented in API.md). A unique geo-hash guard would close it but is out of scope.
+- **Nominatim:** address geocoding uses the public OSM endpoint (1 req/s policy, no key). Fine for a prototype; a self-hosted/geocoding API key is a production concern.
+- **Polling, not push:** 10 s polling is the live-update mechanism; no Socket.IO (not in the stack).
+- **Tier side effects:** intentionally absent — `checkTiers` comment marks the Phase 5 hook.
+- **Lifecycle vs CONTEXT.md §6** (carried from Phase 3): admin REJECT from any non-terminal status vs §6's ACTIVE-only — still to be reconciled before Phase 5.
+
+### Manual Test Checklist (Phase 4) — needs TWO accounts
+
+1. Start both servers. Account A = any citizen (e.g. `phase2.tester@example.com` / `Test@12345`), account B = a second citizen (e.g. `phase4.supporter@example.com` / `Test@12345`)
+2. As A: report an issue (wizard autofills address from "Use my location" or geocodes a typed address). Note the detail page: fund meter ₹5 of ₹200, "You reported this", supporters list shows only you
+3. As B (different browser/profile or logout/login): open A's issue → "Support for ₹1" → dialog shows fee −₹1, balance, balance-after → confirm → toast, meter jumps to ₹6 / 2 supporters, "You supported ✓", your "FirstName L." appears in supporters; wallet history shows "Support fee −₹1"
+4. As B: click support again → no button (already supported). Via API with a new key → `409 ALREADY_SUPPORTED`, no charge
+5. As B: report the SAME category at the SAME address → duplicate dialog shows A's issue with distance ≈ 0 m and NO support option (you already supported) → "This is different" → your issue is created; or "Cancel" → nothing charged
+6. As B: report same category ~200 m away → no duplicate dialog, created normally
+7. As A: reject your own issue? No — login as admin (`admin@samadhan.local` / `Admin@12345`) → Reject → A and B both refunded (wallet "Refund" rows), fund ₹0, issue hidden from feed but visible to A
+8. `/my-activity` as B: Reported tab shows B's issue; Supported tab shows A's issue with "You gave ₹1"
+9. Leave the detail page open in two windows; support in one → the other updates within ~10 s; switch tabs → polling pauses
+10. Toggle हिंदी → meter, support dialog, duplicate dialog, My Activity all render in Hindi
+11. `cd server && npm test` → 53/53; `cd client && npm run build` → clean
 
 ---
 
