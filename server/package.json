@@ -7,7 +7,8 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "seed:admin": "node src/seed/admin.seed.js"
   },
   "nodemonConfig": {
     "watch": [
@@ -22,10 +23,12 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.13.0",
     "zod": "^4.6.7"
   },

@@ -31,3 +31,26 @@ export function sendError(res, { statusCode = 500, code = 'INTERNAL_SERVER_ERROR
     },
   });
 }
+
+/**
+ * Create success response object
+ */
+export function apiSuccess(data = null) {
+  return {
+    success: true,
+    data,
+  };
+}
+
+/**
+ * Create error response object
+ */
+export function apiError(code = 'INTERNAL_SERVER_ERROR', message = 'Something went wrong.') {
+  return {
+    success: false,
+    error: {
+      code,
+      message,
+    },
+  };
+}

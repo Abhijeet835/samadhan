@@ -13,6 +13,10 @@ export const env = Object.freeze({
   port: toPort(process.env.PORT, 5000),
   mongoUri: (process.env.MONGO_URI ?? '').trim(),
   clientUrl: (process.env.CLIENT_URL ?? 'http://localhost:5173').trim(),
+  jwtSecret: process.env.JWT_SECRET || 'samadhan_dev_jwt_secret_9847239847',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  adminEmail: (process.env.ADMIN_EMAIL ?? 'admin@samadhan.local').trim(),
+  adminPassword: process.env.ADMIN_PASSWORD || 'Admin@12345',
 });
 
 export const isProduction = env.nodeEnv === 'production';

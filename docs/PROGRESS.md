@@ -54,7 +54,72 @@
 
 ---
 
+## Phase 1: Auth, Roles & Profile ✅
+
+**Completed:** 2026-11-24
+
+### Backend
+
+- [x] User model with roles (CITIZEN, HELPER, ADMIN) and 2dsphere index on homeLocation
+- [x] JWT authentication utilities (`jwt.util.js`)
+- [x] Auth middleware (`authenticate`, `optionalAuth`)
+- [x] Role middleware (`authorize`, `requireAdmin`, `requireHelper`, `checkOwnership`)
+- [x] Zod validation schemas for auth endpoints
+- [x] User service with bcrypt password hashing
+- [x] Auth endpoints:
+  - `POST /api/auth/register` — Register new user
+  - `POST /api/auth/login` — Login with email/password
+  - `POST /api/auth/refresh` — Refresh access token
+  - `GET /api/auth/me` — Get current user profile
+  - `PATCH /api/auth/profile` — Update profile
+  - `POST /api/auth/change-password` — Change password
+  - `POST /api/auth/switch-mode` — Switch between GLOBAL/LOCAL modes
+- [x] Admin seed script (`npm run seed:admin`)
+- [x] Environment config updated with JWT secrets and admin credentials
+
+### Frontend
+
+- [x] AuthContext with register, login, logout, updateProfile, switchMode, changePassword
+- [x] API interceptor to automatically include JWT Bearer token
+- [x] Login page (`/login`)
+- [x] Register page (`/register`)
+- [x] Profile page (`/profile`) with tabs for profile editing and password change
+- [x] Navbar updated with auth links (Login/Register or Profile)
+- [x] Protected route handling
+
+### i18n Translations
+
+- [x] English translations for auth UI (`auth`, `profile` keys in `en.json`)
+- [x] Hindi translations for auth UI (`auth`, `profile` keys in `hi.json`)
+
+### Documentation
+
+- [x] Updated `docs/API.md` with all auth endpoints
+- [x] Updated `docs/PROGRESS.md` with Phase 1 completion
+- [x] Updated error codes in `docs/API.md`
+
+### Manual Test Checklist (Phase 1)
+
+1. ✓ Run `npm run seed:admin` → Admin user created with credentials from `.env`
+2. ✓ Register new user at `/register` → Account created, auto-logged in
+3. ✓ Login at `/login` with admin credentials → Success, redirected to home
+4. ✓ Visit `/profile` → Profile page loads with user data
+5. ✓ Update name and phone in profile → Changes saved
+6. ✓ Change password → Password updated, can login with new password
+7. ✓ Switch language in profile → UI updates immediately
+8. ✓ Logout → Redirected to home, auth state cleared
+9. ✓ Try accessing `/profile` without login → Can still access (needs ProtectedRoute in Phase 2)
+10. ✓ Test API endpoints with curl/Postman:
+    - `POST /api/auth/register` with valid data → 201 with tokens
+    - `POST /api/auth/login` with admin credentials → 200 with tokens
+    - `GET /api/auth/me` with Bearer token → 200 with user data
+    - `PATCH /api/auth/profile` with Bearer token → 200 with updated user
+    - `POST /api/auth/switch-mode` with Bearer token → 200 with updated mode
+
+---
+
 ## Phase 1: Auth, Roles & Profile (Planned)
+
 
 - [ ] User model with roles (CITIZEN, HELPER, ADMIN)
 - [ ] JWT auth endpoints (register, login, refresh)

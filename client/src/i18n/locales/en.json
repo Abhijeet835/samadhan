@@ -12,7 +12,8 @@
     "preview": "Preview",
     "phase": "Phase 0 foundation",
     "comingSoon": "Full experience coming soon",
-    "learnMore": "Learn more"
+    "learnMore": "Learn more",
+    "loading": "Loading..."
   },
   "nav": {
     "main": "Main navigation",
@@ -25,7 +26,10 @@
     "hindi": "हिंदी",
     "global": "Global",
     "local": "Local",
-    "modeBadge": "Two modes, one platform"
+    "modeBadge": "Two modes, one platform",
+    "login": "Login",
+    "register": "Register",
+    "profile": "Profile"
   },
   "hero": {
     "eyebrow": "Civic problems + trusted local help",
@@ -128,5 +132,60 @@
     "disclaimer": "Not an official government portal. Samadhan records and amplifies public issues transparently.",
     "simulated": "College prototype · Simulated money only",
     "copyright": "© {{year}} Samadhan"
+  },
+  "auth": {
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "passwordHint": "Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char",
+    "name": "Full Name",
+    "namePlaceholder": "Your full name",
+    "phone": "Phone Number",
+    "phonePlaceholder": "10-digit mobile number",
+    "phoneHint": "Enter a valid 10-digit Indian mobile number",
+    "role": {
+      "label": "Register as",
+      "citizen": "Citizen",
+      "helper": "Helper",
+      "admin": "Admin",
+      "hint": "Citizens can report issues and find helpers. Helpers offer verified services."
+    },
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Login to continue to Samadhan",
+      "button": "Login",
+      "noAccount": "Don't have an account?",
+      "registerLink": "Register now"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Join Samadhan and start making a difference",
+      "button": "Create account",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Login here"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Manage your account settings and preferences",
+    "tabs": {
+      "profile": "Profile",
+      "password": "Password"
+    },
+    "edit": {
+      "title": "Edit Profile"
+    },
+    "language": "Preferred Language",
+    "save": "Save Changes",
+    "password": {
+      "title": "Change Password",
+      "current": "Current Password",
+      "new": "New Password",
+      "confirm": "Confirm New Password",
+      "change": "Change Password",
+      "mismatch": "Passwords do not match"
+    },
+    "logout": "Logout"
   }
 }
