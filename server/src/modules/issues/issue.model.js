@@ -112,6 +112,13 @@ const issueSchema = new mongoose.Schema(
     },
     resolvedAt: Date,
     rejectedReason: String,
+    authorityId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Authority',
+      default: null,
+    },
+    tier1ReachedAt: Date,
+    tier2ReachedAt: Date,
   },
   {
     timestamps: true,

@@ -40,6 +40,14 @@ export default function Navbar() {
               {t('nav.myActivity')}
             </Link>
           )}
+          {user?.role === 'ADMIN' && (
+            <Link
+              to="/admin/dispatch"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-50 hover:text-violet-700"
+            >
+              {t('nav.adminDispatch')}
+            </Link>
+          )}
           <a
             href="#how-it-works"
             className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

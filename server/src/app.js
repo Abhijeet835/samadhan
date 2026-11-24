@@ -8,6 +8,13 @@ import userRoutes from './modules/users/user.routes.js';
 import walletRoutes from './modules/wallet/wallet.routes.js';
 import issueRoutes from './modules/issues/issue.routes.js';
 import uploadRoutes from './modules/uploads/uploads.routes.js';
+import authorityRoutes from './modules/authorities/authority.routes.js';
+import dispatchRoutes from './modules/dispatch/dispatch.routes.js';
+import * as dispatchController from './modules/dispatch/dispatch.controller.js';
+import { issueIdParamSchema } from './modules/issues/issue.schema.js';
+import { authenticate } from './middleware/auth.middleware.js';
+import { requireAdmin } from './middleware/role.middleware.js';
+import { validate } from './middleware/validate.middleware.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
 
 const app = express();
@@ -41,6 +48,15 @@ app.use('/api/auth', userRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/issues', issueRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/admin/authorities', authorityRoutes);
+app.use('/api/admin/dispatch', dispatchRoutes);
+app.post(
+  '/api/admin/issues/:issueId/recheck-tiers',
+  authenticate,
+  requireAdmin,
+  validate(issueIdParamSchema, 'params'),
+  dispatchController.recheck,
+);
 
 app.use(notFound);
 app.use(errorHandler);

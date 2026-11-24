@@ -47,13 +47,13 @@ afterAll(async () => {
 describe('settings collection', () => {
   it('seeds all defaults idempotently and never overwrites existing values', async () => {
     const before = await Settings.find().lean();
-    expect(before.length).toBe(8);
+    expect(before.length).toBe(9);
 
     await Settings.updateOne({ key: 'reportFeePaise' }, { $set: { value: 600 } });
     await ensureDefaultSettings();
 
     const after = await Settings.find().lean();
-    expect(after.length).toBe(8);
+    expect(after.length).toBe(9);
     expect(await getSetting('reportFeePaise')).toBe(600);
 
     // restore for other tests
@@ -67,6 +67,7 @@ describe('settings collection', () => {
     expect(await getSetting('signupCreditPaise')).toBe(5000);
     expect(await getSetting('duplicateRadiusM')).toBe(100);
     expect(await getSetting('duplicateDays')).toBe(30);
+    expect(await getSetting('autoCloseDays')).toBe(7);
     expect(await getSetting('demoMode')).toBe(false);
   });
 

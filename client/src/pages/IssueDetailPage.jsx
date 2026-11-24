@@ -11,6 +11,8 @@ import TransitionPanel from '@/features/global/TransitionPanel';
 import FundMeter from '@/features/global/FundMeter';
 import SupportPanel from '@/features/global/SupportPanel';
 import SupportersList from '@/features/global/SupportersList';
+import EscalationCard from '@/features/global/EscalationCard';
+import TierBadge from '@/features/global/TierBadge';
 import { useIssueDetail } from '@/features/global/useIssueDetail';
 import { useIssueMeta } from '@/features/global/useIssueMeta';
 import { formatTxnDate } from '@/features/wallet/money';
@@ -52,7 +54,7 @@ export default function IssueDetailPage() {
     );
   }
 
-  const { issue, updates, viewer } = data;
+  const { issue, updates, viewer, escalation } = data;
   const location = issue.location ?? {};
 
   return (
@@ -70,6 +72,7 @@ export default function IssueDetailPage() {
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
             <StatusBadge status={issue.status} />
             <CategoryBadge category={issue.category} />
+            <TierBadge tier={issue.tier} />
           </div>
           <h1 className="text-3xl font-bold text-slate-900">{issue.title}</h1>
           <p className="mt-2 text-sm text-slate-500">
@@ -122,12 +125,16 @@ export default function IssueDetailPage() {
                   fundPaise={issue.fundPaise}
                   supporterCount={issue.supporterCount}
                   thresholds={meta?.thresholds}
+                  tiersReached={issue.tiersReached ?? []}
+                  escalation={escalation}
                 />
                 <div className="mt-4">
                   <SupportPanel issue={issue} viewer={viewer} onSupported={applySupport} onReload={reload} />
                 </div>
               </CardContent>
             </Card>
+
+            {issue.tier >= 2 && <EscalationCard escalation={escalation} language={i18n.language} />}
 
             <Card>
               <CardHeader>

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { formatPaise } from '@/features/wallet/money';
 import FundMeter from './FundMeter';
+import TierBadge from './TierBadge';
 import { CategoryBadge, StatusBadge } from './StatusBadge';
 
 export default function IssueCard({ issue, thresholds }) {
@@ -29,6 +30,7 @@ export default function IssueCard({ issue, thresholds }) {
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
           <StatusBadge status={issue.status} />
           <CategoryBadge category={issue.category} />
+          <TierBadge tier={issue.tier} />
         </div>
         <h3 className="line-clamp-2 font-semibold text-slate-900 group-hover:text-blue-700">
           {issue.title}

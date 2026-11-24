@@ -20,6 +20,16 @@ export const env = Object.freeze({
   cloudinaryCloudName: (process.env.CLOUDINARY_CLOUD_NAME ?? '').trim(),
   cloudinaryApiKey: (process.env.CLOUDINARY_API_KEY ?? '').trim(),
   cloudinaryApiSecret: (process.env.CLOUDINARY_API_SECRET ?? '').trim(),
+  smtpHost: (process.env.SMTP_HOST ?? '').trim(),
+  smtpPort: toPort(process.env.SMTP_PORT, 587),
+  smtpSecure: (process.env.SMTP_SECURE ?? '').trim() === 'true',
+  smtpUser: (process.env.SMTP_USER ?? '').trim(),
+  smtpPass: process.env.SMTP_PASS ?? '',
+  smtpFrom: (process.env.SMTP_FROM ?? 'Samadhan <no-reply@samadhan.local>').trim(),
+  dispatchOverrideTo: (process.env.DISPATCH_OVERRIDE_TO ?? '').trim(),
+  n8nWebhookUrl: (process.env.N8N_WEBHOOK_URL ?? '').trim(),
+  n8nWebhookSecret: process.env.N8N_WEBHOOK_SECRET ?? '',
+  enableCron: (process.env.ENABLE_CRON ?? 'true').trim() !== 'false',
 });
 
 export const isProduction = env.nodeEnv === 'production';

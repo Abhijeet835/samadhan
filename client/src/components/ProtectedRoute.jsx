@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/context/AuthContext';
 
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children, roles }) {
   const { t } = useTranslation();
-  const { isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -22,6 +22,10 @@ export default function ProtectedRoute({ children }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
+
+  if (roles?.length && !roles.includes(user?.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return children;

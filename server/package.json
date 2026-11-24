@@ -10,7 +10,11 @@
     "start": "node src/server.js",
     "seed:admin": "node src/seed/admin.seed.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:authorities": "node src/seed/authorities.seed.js",
+    "demo:on": "node src/scripts/demo-mode.js on",
+    "demo:off": "node src/scripts/demo-mode.js off",
+    "job:autoclose": "node src/scripts/run-autoclose.js"
   },
   "nodemonConfig": {
     "watch": [
@@ -34,6 +38,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.13.0",
     "multer": "^2.5.0",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.6.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

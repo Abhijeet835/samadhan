@@ -2,6 +2,7 @@ import { env } from './config/env.js';
 import app from './app.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { ensureDefaultSettings } from './modules/wallet/wallet.service.js';
+import { registerJobs } from './jobs/index.js';
 
 const server = app.listen(env.port, () => {
   console.log(`[server] Samadhan API listening on http://localhost:${env.port}`);
@@ -20,6 +21,7 @@ connectDB().then(async (connection) => {
   try {
     await ensureDefaultSettings();
     console.log('[settings] Default settings ensured.');
+    registerJobs();
   } catch (error) {
     console.error('[settings] Failed to ensure default settings:', error.message);
   }

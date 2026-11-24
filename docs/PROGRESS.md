@@ -8,13 +8,13 @@
 
 |Item|Value|
 |---|---|
-|**Phases complete**|0, 1, 2, 3, 4|
-|**Next phase**|5 — Tier engine & dispatch (`checkTiers` hook is marked in `supportIssue`)|
-|**Server tests**|53/53 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate)|
-|**i18n parity**|`en.json` / `hi.json` 325/325 keys|
+|**Phases complete**|0, 1, 2, 3, 4, 5|
+|**Next phase**|6 — Social bundles & trending (Phase 6/8 hook comments mark the plug-in points)|
+|**Server tests**|78/78 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate + 25 tiers/dispatch/cron)|
+|**i18n parity**|`en.json` / `hi.json` 381/381 keys|
 |**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
 |**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
-|**Git**|Phases 2–3 committed on `main` (`f8db51a`); Phase 4 uncommitted pending manual testing|
+|**Git**|Phases 2–3 `f8db51a`, Phase 4 `a40fbd1` on `main`; Phase 5 uncommitted pending manual testing|
 
 **If you are a new AI session resuming this project:** read `AGENTS.md` → `docs/CONTEXT.md` → this file → `docs/API.md`. Build only the next phase. Do not refactor earlier phases except to fix a documented bug.
 
@@ -327,13 +327,77 @@
 
 ---
 
-## Phase 5: Tier Engine & Dispatch (Planned)
+## Phase 5: Tier Engine & Dispatch ✅
 
-- [ ] Race-safe tier engine (Tier 1 @ ₹200, Tier 2 @ ₹500)
-- [ ] Authority directory
-- [ ] Email dispatch (SMTP + simulated preview)
-- [ ] Lifecycle cron jobs
-- [ ] n8n webhook integration (optional)
+**Completed:** 2026-11-24
+
+### Part 0 — Lifecycle reconcile
+
+- [x] `REJECTED` allowed ONLY from ACTIVE / ACKNOWLEDGED / IN_PROGRESS (admin); RESOLVED→REJECTED now throws `INVALID_TRANSITION` (test added); CONTEXT.md §6 updated
+- [x] `SYSTEM` actor: only RESOLVED→CLOSED after the window; timeline row `actorRole: 'SYSTEM'`, `actorId: null` (issueUpdate schema relaxed backward-compatibly); admin manual CLOSED unchanged
+- [x] New setting `autoCloseDays` (default 7, `$setOnInsert`); BOTH the reporter reopen window and auto-close read it
+- [x] CONTEXT.md §9 notes extra error detail fields; §11 lists the new env vars
+
+### Backend
+
+- [x] Authorities module (`server/src/modules/authorities/`): model (separate multikey indexes on `cityKeys` and `categories` — MongoDB forbids a compound index over two parallel arrays), Zod schemas, `normaliseCity` (trim/lowercase/strip diacritics/collapse spaces), `matchAuthority` with the exact 5-level priority (never throws), admin-only GET/POST/PATCH `/api/admin/authorities` (`404 AUTHORITY_NOT_FOUND`)
+- [x] `npm run seed:authorities` — idempotent upserts, 6 CLEARLY SAMPLE rows (3 cities + fallback, example.org emails, header comment, no real officials)
+- [x] Tier engine (`server/src/modules/tiers/`): `checkTiers(issueId)` claims tiers 1→2 ascending with ONE conditional update each (threshold + status + `tiersReached` in the filter); returns `{ claimedTiers, done }` — claims awaited, side effects backgrounded; failure-isolated throughout
+- [x] Issue model gains `authorityId`, `tier1ReachedAt`, `tier2ReachedAt`; tier 1 claim resolves `matchAuthority` once and sets `authorityId`
+- [x] Immutable `auditLogs` written synchronously at claim time (who/what/tier/fund snapshot); dispatch rows INSERTed at claim time with unique `(issueId, tier, channel)`
+- [x] Hooks: end of `supportIssue` (response gains `data.tierUnlocked`) AND end of `createIssue` (demo thresholds can be met at report time); Phase 6/8 plug-in points are one-line comments only
+- [x] Dispatch module (`server/src/modules/dispatch/`): dispatchLog model (statuses PENDING/SENT/SIMULATED/FAILED/SKIPPED/CANCELLED, indexes per CONTEXT §8), ONE swappable `getTransport()` (10s/15s timeouts), `SMTP_HOST` empty → SIMULATED with full stored preview, `DISPATCH_OVERRIDE_TO` redirect with `[TEST → intended]` subject and intended recipient stored in `to`
+- [x] Bilingual facts-only email template (EN block then HI): title/category/address/coords + OSM link/UTC date/supporter count/public URL/≤3 photos; "The Officer-in-charge, <department>"; NOT-official-portal disclaimer; HTML-escaped; NO officer names, reporter PII, money amounts or accusatory language (unit-tested)
+- [x] n8n webhook via fetch + AbortController (5s), optional `X-Samadhan-Secret`; empty URL → SKIPPED; failure → FAILED isolated; payload carries no secrets/PII
+- [x] Runner rules: non-open issue at execution → CANCELLED (ISSUE_NOT_OPEN); rejection cancels PENDING/FAILED rows inside the existing transaction (refunds untouched); `retryDispatch` conditional FAILED→PENDING with `$inc attempts` (max 5, concurrent retries = one send, SENT/SIMULATED → `409 DISPATCH_NOT_RETRYABLE`); `recheckTiers` admin endpoint
+- [x] Admin endpoints: `GET /api/admin/dispatch` (filters status/issueId), `POST /api/admin/dispatch/:logId/retry`, `POST /api/admin/issues/:issueId/recheck-tiers`
+- [x] Public-safe detail: `escalation: null | { status, authorityName, sentAt }` — never email/subject/body; feed items include `tier`
+
+### Part D — Cron
+
+- [x] `jobs/index.js` registers after DB connect; skipped when `NODE_ENV=test` or `ENABLE_CRON=false`; logs counts
+- [x] `autoCloseJob` hourly (`runAutoCloseOnce`, per-issue error isolation, `npm run job:autoclose`); `dispatchSweepJob` every 10 min re-runs PENDING stuck > 10 min with attempts < 5; FAILED never auto-retried
+- [x] npm scripts: `demo:on` / `demo:off` (print effective thresholds), `seed:authorities`, `job:autoclose`
+
+### Frontend
+
+- [x] FundMeter uses REAL `issue.tiersReached` for tier states; "Spotlight unlocked" chip; not-official/112 disclaimer kept visible near the meter
+- [x] EscalationCard (tier 2 only): authority name, status-mapped text (SENT/SIMULATED/FAILED+PENDING/SKIPPED/CANCELLED), date, neutral copy — no email address
+- [x] SupportPanel: distinct celebratory toasts for tierUnlocked 1/2 + immediate issue refresh
+- [x] IssueCard + detail header: TierBadge (Spotlight amber / Escalated violet)
+- [x] `/admin/dispatch` (ProtectedRoute gained backward-compatible `roles` prop; admin-only nav link): Dispatch log tab (status filter, cards, preview dialog with subject/body, Retry only for FAILED) + Authorities tab (list, add/edit dialog incl. email/handles/active/fallback); skeletons, empty states, error+retry throughout
+- [x] `tier.*`, `escalation.*`, `adminDispatch.*`, `authority.*`, `nav.adminDispatch` in BOTH locales — parity 381/381
+
+### Tests
+
+- [x] 25 new tests in `tiers.test.js` (78/78 total), mocked transport + fetch, mutable env mock: claims/races (20 concurrent checkTiers → one claim + one row set; REJECTED never claims; settings + demoMode thresholds; both tiers in one call; end-to-end 10 concurrent supporters at low thresholds with ledger invariant; tierUnlocked only for the winner), isolation (SMTP throw → payment intact + FAILED row + retry → SENT + retry SENT → 409 + concurrent retries one send; n8n SKIPPED/FAILED), runner rules + sweep, all 5 authority priorities + normalisation + NO_AUTHORITY skip, email rules (disclaimer/URL/bilingual/no PII/no money/HTML escape/SIMULATED preview/override), cron (window, SYSTEM row, concurrent runs one row, SYSTEM restrictions, REJECTED-from-RESOLVED blocked), admin HTTP 401/403/200 matrix, public detail never leaks authority email
+
+### Verification
+
+- [x] `npm test` 78/78; client production build clean; `npm run seed:authorities` idempotent; `demo:on/off` print ₹20/₹50 vs ₹200/₹500
+- [x] Browser-verified end-to-end with lowered thresholds: report → support claims tier 1 (`tierUnlocked:[1]`) → support claims tier 2 (`[2]`) → detail shows ESCALATED badge, Spotlight chip, EscalationCard "Escalation prepared (demo mode — email simulated)" with the fallback authority (no WATER dept in Bengaluru — correct priority) → admin dispatch log shows SIMULATED EMAIL + SKIPPED webhooks, preview dialog renders the full bilingual email; Authorities tab lists the 6 seeded rows; thresholds restored afterwards
+
+### Known Gaps & Open Decisions (Phase 5)
+
+- **Authority index:** CONTEXT.md §8 lists `(cityKeys, categories)` together; MongoDB cannot compound-index two parallel arrays, so each field has its own multikey index.
+- **demoMode off later:** tiers already claimed stay claimed (accepted, documented in API.md).
+- **Simultaneous duplicate reports** can still both pass (Phase 4 accepted limitation, unchanged).
+- **Sample authorities only** — example.org emails; replace with verified official contacts before any real dispatch. `DISPATCH_OVERRIDE_TO` is the safe way to test real SMTP.
+- **Social posts / trending / notifications / maps / full admin panel** are NOT built — one-line Phase 6/8 comments mark the plug-in points; `/admin/dispatch` is intentionally minimal until Phase 8.
+- **Stale dev index:** databases created before this phase may hold the old `cityKeys_1_categories_1` index; drop it once (Mongoose will not remove it automatically).
+
+### Manual Test Checklist (Phase 5) — TWO citizens + admin
+
+1. `cd server && npm run seed:authorities` then `npm run demo:on` (prints Tier 1 = 2000 / Tier 2 = 5000 paise = ₹20/₹50). Start both servers
+2. Citizen A reports an issue in a seeded city/category (e.g. ROAD in Bengaluru) → fund ₹5
+3. Citizens B + A's other accounts support (₹1 each). At fund ≥ ₹20 the winning supporter sees the "Spotlight unlocked!" toast; the detail page shows the amber Spotlight chip + ESCALATED-ready meter
+4. Keep supporting to fund ≥ ₹50 → "Escalation triggered!" toast; EscalationCard appears: authority name + "Escalation prepared (demo mode — email simulated)" (SMTP empty). No email address anywhere public
+5. Login as admin → nav "Dispatch" → `/admin/dispatch`: EMAIL row SIMULATED with Preview showing the full bilingual email (disclaimer, OSM link, no money/PII); webhook rows SKIPPED. Authorities tab: edit an email/handles/active, add a new authority
+6. Real-SMTP test (optional): set `SMTP_HOST` etc. + `DISPATCH_OVERRIDE_TO=your@inbox` in `.env`, restart, admin Retry a FAILED row or recheck tiers → email arrives at YOUR address, subject prefixed `[TEST → intended]`
+7. Admin rejects a tier-2 issue → refunds as before, dispatch rows CANCELLED, EscalationCard shows cancelled
+8. Resolve an issue, backdate `resolvedAt` > 7 days (or lower `autoCloseDays`), `npm run job:autoclose` → CLOSED with a SYSTEM timeline row; a 6-day-old resolved issue stays open
+9. `npm run demo:off` → thresholds back to ₹200/₹500; already-claimed tiers stay claimed
+10. Toggle हिंदी → tier chips, escalation card, admin page all translate; `npm test` → 78/78
 
 ---
 

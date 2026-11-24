@@ -18,11 +18,11 @@ const issueUpdateSchema = new mongoose.Schema(
     actorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      default: null,
     },
     actorRole: {
       type: String,
-      enum: ['CITIZEN', 'HELPER', 'ADMIN'],
+      enum: ['CITIZEN', 'HELPER', 'ADMIN', 'SYSTEM'],
       required: true,
     },
     note: {

@@ -35,7 +35,8 @@
     "wallet": "Wallet",
     "feed": "Issues",
     "report": "Report",
-    "myActivity": "My Activity"
+    "myActivity": "My Activity",
+    "adminDispatch": "Dispatch"
   },
   "hero": {
     "eyebrow": "Civic problems + trusted local help",
@@ -415,5 +416,70 @@
     "contributed": "You gave {{amount}}",
     "loadFailed": "Could not load your activity.",
     "browseCta": "Browse issues"
+  },
+  "tier": {
+    "spotlight": "Spotlight",
+    "escalated": "Escalated",
+    "spotlightChip": "Spotlight unlocked",
+    "spotlightUnlocked": "Spotlight unlocked! This issue now has community amplification.",
+    "escalationTriggered": "Escalation triggered! A formal email is on its way to the department."
+  },
+  "escalation": {
+    "title": "Official escalation",
+    "sent": "Escalation sent to {{name}}",
+    "simulated": "Escalation prepared (demo mode — email simulated)",
+    "inProgress": "Escalation in progress",
+    "noAuthority": "Escalation pending — no matching department yet",
+    "cancelled": "Escalation cancelled",
+    "neutral": "A factual summary of this issue was shared with the responsible department for civic follow-up.",
+    "notOfficial": "Samadhan is a community prototype — not an official government portal. In an emergency, call 112.",
+    "dateLabel": "Sent"
+  },
+  "adminDispatch": {
+    "title": "Dispatch & Authorities",
+    "subtitle": "Tier dispatch log and department directory (admin only)",
+    "tab": {
+      "log": "Dispatch log",
+      "authorities": "Authorities"
+    },
+    "filterAll": "All statuses",
+    "empty": "No dispatch rows yet",
+    "loadFailed": "Could not load the dispatch log.",
+    "preview": "Preview",
+    "previewTitle": "Dispatch preview",
+    "noPreview": "No stored preview for this row.",
+    "retry": "Retry",
+    "retrySuccess": "Dispatch retried",
+    "retryFailed": "Retry failed",
+    "attempts": "Attempts: {{count}}",
+    "to": "To",
+    "subject": "Subject",
+    "tier": "Tier",
+    "channelEmail": "Email",
+    "channelWebhook": "Webhook",
+    "statusLabel": "Status"
+  },
+  "authority": {
+    "empty": "No authorities yet",
+    "loadFailed": "Could not load authorities.",
+    "add": "Add authority",
+    "edit": "Edit",
+    "save": "Save",
+    "nameEn": "Name (English)",
+    "nameHi": "Name (Hindi)",
+    "department": "Department",
+    "categories": "Categories (comma-separated, or *)",
+    "cityKeys": "City keys (comma-separated, lowercase)",
+    "email": "Email",
+    "x": "X",
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "active": "Active",
+    "fallback": "Fallback",
+    "fallbackBadge": "Fallback",
+    "inactive": "Inactive",
+    "saved": "Authority saved",
+    "created": "Authority created",
+    "saveFailed": "Could not save the authority."
   }
 }

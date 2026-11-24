@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   signupCreditPaise: 5000,
   duplicateRadiusM: 100,
   duplicateDays: 30,
+  autoCloseDays: 7,
   demoMode: false,
 });
 

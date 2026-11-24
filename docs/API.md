@@ -394,6 +394,7 @@ Fees and thresholds live in the `settings` collection (seeded idempotently on se
 |`signupCreditPaise`|`5000`|₹50 signup bonus|
 |`duplicateRadiusM`|`100`|Duplicate detection radius (Phase 4)|
 |`duplicateDays`|`30`|Duplicate detection window (Phase 4)|
+|`autoCloseDays`|`7`|Auto-close window for RESOLVED issues AND reporter reopen window (Phase 5)|
 |`demoMode`|`false`|When `true`, effective Tier 1 = `2000` / Tier 2 = `5000` paise|
 
 ### `GET /api/wallet`
@@ -720,7 +721,8 @@ Protected. Paid +1 in ONE MongoDB transaction: verify supportable + not already 
     "support": { "_id": "…", "issueId": "…", "userId": "…", "amountPaise": 100, "isReporter": false },
     "issue": { "fundPaise": 600, "supporterCount": 2 },
     "wallet": { "balancePaise": 14900 },
-    "idempotent": false
+    "idempotent": false,
+    "tierUnlocked": []
   }
 }
 ```
@@ -814,6 +816,52 @@ Protected. Uploads one image to Cloudinary (`folder: samadhan/issues`) via multe
 
 ---
 
+## Tiers, authorities & dispatch (Phase 5)
+
+`checkTiers(issueId)` runs AFTER the report/support payment commits. Each tier is claimed with one conditional update (`fundPaise >= threshold`, `status != REJECTED`, `tiersReached != tier`); only the winner runs side effects. Thresholds come from `getEffectiveTierThresholds()` (demoMode-aware). Side effects (audit, email, webhook) are failure-isolated and never roll back a payment.
+
+- `POST /api/issues/:issueId/support` response gains `data.tierUnlocked` — tiers claimed by THIS request (usually `[]`).
+- `GET /api/issues/:issueId` gains `data.escalation`: `null` or `{ status, authorityName, sentAt }` from the tier-2 EMAIL row. NEVER the email address, subject or body. `issue.tier` / `issue.tiersReached` are included; feed items include `tier`.
+- Tier 1 steps: AUDIT + N8N_WEBHOOK. Tier 2 steps: AUDIT + EMAIL + N8N_WEBHOOK. Dispatch rows are unique per `(issueId, tier, channel)`.
+- Runner rule: if the issue is not ACTIVE/ACKNOWLEDGED/IN_PROGRESS at execution time, the row becomes `CANCELLED` (`ISSUE_NOT_OPEN`). Rejecting an issue cancels its PENDING/FAILED rows inside the rejection transaction (refunds unchanged).
+- Lifecycle: `REJECTED` is allowed only from ACTIVE/ACKNOWLEDGED/IN_PROGRESS (admin). A `SYSTEM` actor may only do RESOLVED→CLOSED after `settings.autoCloseDays`; the reporter reopen window reads the same setting.
+
+### `GET /api/admin/authorities` · `POST /api/admin/authorities` · `PATCH /api/admin/authorities/:id`
+
+Admin-only (`401` without token, `403` for non-admins). Department directory used for escalation matching.
+
+**Fields** — `nameEn`, `nameHi`, `department`, `categories` (issue categories or `'*'`), `cityKeys` (lowercase normalised strings or `'*'`), `email`, `handles { x, facebook, instagram }`, `website`, `isActive`, `isFallback`. PATCH is partial. `404 AUTHORITY_NOT_FOUND` on unknown id.
+
+**Match priority** (isActive only): 1) same city + exact category → 2) same city + `'*'` → 3) fallback + exact category → 4) fallback + `'*'` → 5) `null` (EMAIL row then `SKIPPED` with reason `NO_AUTHORITY`). City matching normalises case/diacritics/spaces.
+
+Seed: `npm run seed:authorities` — idempotent SAMPLE data (example.org emails, no real officials).
+
+### `GET /api/admin/dispatch`
+
+Admin-only. Paginated dispatch log.
+
+**Query** — `page`, `limit` (1–50, default 20), `status` (`PENDING|SENT|SIMULATED|FAILED|SKIPPED|CANCELLED`), `issueId`.
+
+Rows include `issueId` (populated title), `tier`, `channel` (`EMAIL|N8N_WEBHOOK`), `status`, `reason`, `to`, `subject`, `bodyText`/`bodyHtml` preview, `attempts`, `lastError` (≤500 chars), `messageId`, `sentAt`.
+
+**Email behaviour** — `SMTP_HOST` empty → `SIMULATED` (full rendered bilingual email stored; counts as success). `DISPATCH_OVERRIDE_TO` set → real send goes to THAT address; `to` stores the intended authority recipient and the subject is prefixed `[TEST → <intended>]`. Templates are facts-only, bilingual (EN then HI), escaped HTML, include the not-an-official-portal disclaimer, and never contain reporter identity, money amounts or officer names.
+
+**Webhook behaviour** — `N8N_WEBHOOK_URL` empty → `SKIPPED`. POST `{ event:'TIER_REACHED', tier, issue:{id,title,category,city,status,supporterCount,url}, authority:{name,handles}|null }` with optional `X-Samadhan-Secret` header, 5 s timeout. Non-2xx/timeout → `FAILED`.
+
+### `POST /api/admin/dispatch/:logId/retry`
+
+Admin-only. Only `FAILED` rows with `attempts < 5` are retryable; the conditional update guarantees two concurrent retries produce one send. `SENT`/`SIMULATED`/other → `409 DISPATCH_NOT_RETRYABLE`; unknown id → `404 DISPATCH_NOT_FOUND`.
+
+### `POST /api/admin/issues/:issueId/recheck-tiers`
+
+Admin-only. Re-runs `checkTiers` after threshold changes. Already-claimed tiers stay claimed (even if demoMode is later turned off). Response `{ claimedTiers }`.
+
+### Lifecycle cron
+
+`autoCloseJob` (hourly) closes RESOLVED issues older than `settings.autoCloseDays` via the SYSTEM actor; `dispatchSweepJob` (every 10 min) re-runs rows stuck PENDING > 10 min (FAILED rows are admin-retry only). Disabled when `NODE_ENV=test` or `ENABLE_CRON=false`. Manual: `npm run job:autoclose`. Demo toggles: `npm run demo:on` / `demo:off`.
+
+---
+
 ## Error codes
 
 |HTTP|Code|Meaning|
@@ -840,6 +888,9 @@ Protected. Uploads one image to Cloudinary (`folder: samadhan/issues`) via multe
 |409|`ISSUE_NOT_SUPPORTABLE`|Issue status does not allow support|
 |409|`ALREADY_SUPPORTED`|User already supported this issue|
 |409|`IDEMPOTENCY_KEY_CONFLICT`|Key already used for a different user/issue|
+|404|`AUTHORITY_NOT_FOUND`|Authority does not exist|
+|404|`DISPATCH_NOT_FOUND`|Dispatch row does not exist|
+|409|`DISPATCH_NOT_RETRYABLE`|Row is not FAILED or attempts exhausted|
 |409|`INVALID_TRANSITION`|Status transition not allowed from the current status|
 |409|`REOPEN_WINDOW_EXPIRED`|Reopen attempted more than 7 days after resolution|
 |400|`IMAGE_REQUIRED`|Upload request contained no file|
@@ -848,4 +899,4 @@ Protected. Uploads one image to Cloudinary (`folder: samadhan/issues`) via multe
 |503|`CLOUDINARY_NOT_CONFIGURED`|Server has no Cloudinary credentials configured|
 |500|`INTERNAL_SERVER_ERROR`|Unexpected server error|
 
-Future phases add domain-specific codes such as `DUPLICATE_FOUND` (Phase 4) and `RATE_LIMITED` (Phase 7). Every new endpoint must be documented here before phase handoff.
+Future phases add domain-specific codes such as `RATE_LIMITED` (Phase 7). Every new endpoint must be documented here before phase handoff.

@@ -63,9 +63,17 @@ export default function SupportPanel({ issue, viewer, onSupported, onReload }) {
     try {
       const res = await api.post(`/issues/${issue._id}/support`, { idempotencyKey: keyRef.current });
       setBalance(res.data.wallet.balancePaise);
-      toast.success(t('support.success'));
+      const unlocked = res.data.tierUnlocked ?? [];
+      if (unlocked.includes(2)) {
+        toast.success(t('tier.escalationTriggered'), { duration: 6000 });
+      } else if (unlocked.includes(1)) {
+        toast.success(t('tier.spotlightUnlocked'), { duration: 6000 });
+      } else {
+        toast.success(t('support.success'));
+      }
       setOpen(false);
       onSupported?.(res.data);
+      if (unlocked.length) onReload?.();
     } catch (err) {
       const code = err.response?.data?.error?.code;
       if (code === 'INSUFFICIENT_BALANCE') {

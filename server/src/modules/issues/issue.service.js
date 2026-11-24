@@ -6,6 +6,8 @@ import IssueUpdate from './issueUpdate.model.js';
 import Wallet from '../wallet/wallet.model.js';
 import WalletTxn from '../wallet/walletTxn.model.js';
 import { chargeWallet, getEffectiveTierThresholds, getSetting } from '../wallet/wallet.service.js';
+import { checkTiers } from '../tiers/tier.service.js';
+import { cancelOpenDispatchForIssue, getEscalationSummary } from '../dispatch/dispatch.service.js';
 import { ApiError } from '../../utils/apiResponse.js';
 
 /**
@@ -14,15 +16,14 @@ import { ApiError } from '../../utils/apiResponse.js';
  */
 const ALLOWED_TRANSITIONS = Object.freeze({
   ACTIVE: ['ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'],
-  ACKNOWLEDGED: ['IN_PROGRESS', 'RESOLVED'],
-  IN_PROGRESS: ['RESOLVED'],
+  ACKNOWLEDGED: ['IN_PROGRESS', 'RESOLVED', 'REJECTED'],
+  IN_PROGRESS: ['RESOLVED', 'REJECTED'],
   RESOLVED: ['CLOSED', 'ACTIVE'],
   CLOSED: [],
   REJECTED: [],
 });
 
 const ADMIN_ONLY = ['ACKNOWLEDGED', 'IN_PROGRESS', 'REJECTED', 'CLOSED'];
-const REOPEN_WINDOW_DAYS = 7;
 const SUPPORTABLE_STATUSES = ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'];
 
 /**
@@ -176,6 +177,13 @@ export async function createIssue({ reporterId, data }) {
     await session.endSession();
   }
 
+  // Demo/low thresholds can be met at report time. Failure-isolated.
+  try {
+    await checkTiers(created._id);
+  } catch (error) {
+    console.error('[tiers] check failed after report:', error.message);
+  }
+
   return { issue: created.toObject(), idempotent: false };
 }
 
@@ -303,9 +311,17 @@ export async function supportIssue({ issueId, userId, idempotencyKey }) {
     await session.endSession();
   }
 
-  // Phase 5: checkTiers(issueId) is called here
+  // AFTER the payment commits — never inside the transaction. The HTTP
+  // response waits only for the atomic claims, not for SMTP/n8n side effects.
+  let tierUnlocked = [];
+  try {
+    const { claimedTiers } = await checkTiers(issueId);
+    tierUnlocked = claimedTiers;
+  } catch (error) {
+    console.error('[tiers] check failed after support:', error.message);
+  }
 
-  return result;
+  return { ...result, tierUnlocked };
 }
 
 /**
@@ -371,9 +387,12 @@ export async function getIssueDetail(issueId, viewer) {
   Issue.updateOne({ _id: issueId }, { $inc: { viewsCount: 1 } }).exec().catch(() => {});
 
   const reporterId = String(issue.reporterId?._id ?? issue.reporterId);
+  const windowDays = await getSetting('autoCloseDays');
+  const escalation = await getEscalationSummary(issueId);
   return {
     issue,
     updates,
+    escalation,
     viewer: {
       isAuthenticated: !!viewer,
       isReporter: viewer ? reporterId === String(viewer.userId) : false,
@@ -384,7 +403,7 @@ export async function getIssueDetail(issueId, viewer) {
         issue.status === 'RESOLVED' &&
         reporterId === String(viewer?.userId) &&
         issue.resolvedAt &&
-        Date.now() - new Date(issue.resolvedAt).getTime() <= REOPEN_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+        Date.now() - new Date(issue.resolvedAt).getTime() <= windowDays * 24 * 60 * 60 * 1000,
     },
   };
 }
@@ -400,6 +419,7 @@ export async function getIssueDetail(issueId, viewer) {
  * @param {string} note
  */
 export async function transitionIssue(issueId, newStatus, actor, note = '') {
+  const windowDays = await getSetting('autoCloseDays');
   const session = await mongoose.startSession();
   let result;
   try {
@@ -409,7 +429,7 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
         throw new ApiError('Issue not found.', 404, 'ISSUE_NOT_FOUND');
       }
 
-      validateTransition(issue, newStatus, actor);
+      validateTransition(issue, newStatus, actor, windowDays);
 
       const set = { status: newStatus };
       if (newStatus === 'RESOLVED') set.resolvedAt = new Date();
@@ -428,6 +448,8 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
         }
         set.rejectedReason = note || '';
         set.fundPaise = 0;
+        // Cancel any pending/failed dispatch rows; refunds are untouched.
+        await cancelOpenDispatchForIssue(issueId, session);
       }
 
       // Conditional on the current status so concurrent transitions cannot
@@ -463,7 +485,21 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
   return result;
 }
 
-function validateTransition(issue, newStatus, actor) {
+function validateTransition(issue, newStatus, actor, windowDays) {
+  const windowMs = windowDays * 24 * 60 * 60 * 1000;
+
+  // SYSTEM (cron) may ONLY auto-close RESOLVED issues after the window.
+  if (actor.role === 'SYSTEM') {
+    if (issue.status !== 'RESOLVED' || newStatus !== 'CLOSED') {
+      throw new ApiError('SYSTEM may only auto-close resolved issues.', 403, 'FORBIDDEN');
+    }
+    const resolvedAt = issue.resolvedAt ? new Date(issue.resolvedAt).getTime() : null;
+    if (!resolvedAt || Date.now() - resolvedAt <= windowMs) {
+      throw new ApiError('Auto-close window has not elapsed yet.', 409, 'INVALID_TRANSITION');
+    }
+    return;
+  }
+
   const allowed = ALLOWED_TRANSITIONS[issue.status] ?? [];
   if (!allowed.includes(newStatus)) {
     throw new ApiError(
@@ -477,13 +513,13 @@ function validateTransition(issue, newStatus, actor) {
   const isReporter = String(issue.reporterId) === String(actor.userId);
 
   if (newStatus === 'ACTIVE') {
-    // Reopen: reporter only, within 7 days of resolution.
+    // Reopen: reporter only, within the settings-driven window of resolution.
     if (!isReporter) {
       throw new ApiError('Only the reporter can reopen a resolved issue.', 403, 'FORBIDDEN');
     }
     const resolvedAt = issue.resolvedAt ? new Date(issue.resolvedAt).getTime() : null;
-    if (!resolvedAt || Date.now() - resolvedAt > REOPEN_WINDOW_DAYS * 24 * 60 * 60 * 1000) {
-      throw new ApiError('A resolved issue can only be reopened within 7 days.', 409, 'REOPEN_WINDOW_EXPIRED');
+    if (!resolvedAt || Date.now() - resolvedAt > windowMs) {
+      throw new ApiError(`A resolved issue can only be reopened within ${windowDays} days.`, 409, 'REOPEN_WINDOW_EXPIRED');
     }
     return;
   }

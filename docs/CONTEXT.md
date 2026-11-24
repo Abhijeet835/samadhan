@@ -130,10 +130,12 @@ Only a non-null result may run tier side effects. Tier actions run after the pay
 | Current | Allowed next | Authorized actor(s) |
 | --- | --- | --- |
 | `ACTIVE` | `ACKNOWLEDGED`, `IN_PROGRESS`, `RESOLVED`, `REJECTED` | Admin (reporter may set `RESOLVED`) |
-| `ACKNOWLEDGED` | `IN_PROGRESS`, `RESOLVED` | Admin (reporter may set `RESOLVED`) |
-| `IN_PROGRESS` | `RESOLVED` | Admin or reporter |
-| `RESOLVED` | `CLOSED`, `ACTIVE` (reopen) | Cron after 7 days → `CLOSED`; reporter within 7 days → `ACTIVE` |
+| `ACKNOWLEDGED` | `IN_PROGRESS`, `RESOLVED`, `REJECTED` | Admin (reporter may set `RESOLVED`) |
+| `IN_PROGRESS` | `RESOLVED`, `REJECTED` | Admin or reporter (`RESOLVED`); admin (`REJECTED`) |
+| `RESOLVED` | `CLOSED`, `ACTIVE` (reopen) | Admin or SYSTEM cron after `settings.autoCloseDays` → `CLOSED`; reporter within the same window → `ACTIVE` |
 | `CLOSED` / `REJECTED` | None | Locked (terminal) |
+
+`REJECTED` is allowed ONLY from `ACTIVE`, `ACKNOWLEDGED`, `IN_PROGRESS` (admin only). The `SYSTEM` actor (cron) may ONLY do `RESOLVED → CLOSED` after the window; its timeline rows store `actorRole: 'SYSTEM'`, `actorId: null`.
 
 Invalid transitions must throw a structured error, not silently update the document.
 
@@ -183,7 +185,7 @@ All timestamps are stored in UTC.
 
 - Base prefix: `/api`
 - Success: `{ "success": true, "data": ... }`
-- Failure: `{ "success": false, "error": { "code": "MACHINE_CODE", "message": "Human readable message" } }`
+- Failure: `{ "success": false, "error": { "code": "MACHINE_CODE", "message": "Human readable message" } }`. Error objects may carry extra detail fields alongside `code`/`message` (e.g. `error.existingIssue` on `DUPLICATE_FOUND`).
 - Health: `GET /api/health` is public and must remain available even when MongoDB is not configured.
 - Protected routes: JWT auth + role + ownership. Admin routes are strictly `ADMIN`.
 
@@ -214,8 +216,11 @@ All timestamps are stored in UTC.
 | `CLIENT_URL` | CORS origin, default `http://localhost:5173` |
 | `JWT_SECRET` | Phase 1 |
 | `CLOUDINARY_*` | Phase 3 |
-| `SMTP_*` | Phase 5 |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Phase 5 email dispatch; `SMTP_HOST` empty → SIMULATED previews |
+| `DISPATCH_OVERRIDE_TO` | Phase 5: redirect real sends to a safe test inbox |
 | `N8N_WEBHOOK_URL` | Optional Phase 5 hook |
+| `N8N_WEBHOOK_SECRET` | Optional Phase 5 hook secret (`X-Samadhan-Secret` header) |
+| `ENABLE_CRON` | Phase 5: `false` disables scheduled jobs |
 
 ### Client (`client/.env`)
 

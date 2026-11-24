@@ -11,6 +11,7 @@ import IssuesPage from '@/pages/IssuesPage';
 import IssueDetailPage from '@/pages/IssueDetailPage';
 import ReportPage from '@/pages/ReportPage';
 import MyActivityPage from '@/pages/MyActivityPage';
+import AdminDispatchPage from '@/pages/AdminDispatchPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/context/AuthContext';
 
@@ -67,6 +68,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <MyActivityPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/dispatch"
+              element={
+                <ProtectedRoute roles={['ADMIN']}>
+                  <AdminDispatchPage />
                 </ProtectedRoute>
               }
             />
