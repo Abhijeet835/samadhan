@@ -1,0 +1,37 @@
+{
+  "name": "samadhan-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Samadhan client — Phase 0 foundation (React 18 + Vite + Tailwind + shadcn/ui)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.5.0",
+    "axios": "^1.21.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "i18next": "^24.2.3",
+    "lucide-react": "^1.79.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-hot-toast": "^2.6.1",
+    "react-i18next": "^15.7.4",
+    "react-router-dom": "^6.30.6",
+    "tailwind-merge": "^3.7.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7",
+    "vite": "^6.4.6"
+  }
+}

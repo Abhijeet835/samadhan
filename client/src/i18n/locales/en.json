@@ -1,0 +1,132 @@
+{
+  "meta": {
+    "title": "Samadhan — Civic problems, solved together",
+    "description": "Report public civic problems with your neighbours or find verified local helpers nearby. A bilingual, mobile-first civic utility."
+  },
+  "app": {
+    "name": "Samadhan",
+    "tagline": "One platform. Two ecosystems."
+  },
+  "common": {
+    "skipToContent": "Skip to content",
+    "preview": "Preview",
+    "phase": "Phase 0 foundation",
+    "comingSoon": "Full experience coming soon",
+    "learnMore": "Learn more"
+  },
+  "nav": {
+    "main": "Main navigation",
+    "mobile": "Mobile navigation",
+    "home": "Home",
+    "howItWorks": "How it works",
+    "modes": "Global & Local",
+    "language": "Language",
+    "english": "English",
+    "hindi": "हिंदी",
+    "global": "Global",
+    "local": "Local",
+    "modeBadge": "Two modes, one platform"
+  },
+  "hero": {
+    "eyebrow": "Civic problems + trusted local help",
+    "titleLead": "Your city's problems,",
+    "titleHighlight": "solved together.",
+    "subtitle": "Report public issues with your neighbours, or find verified helpers nearby — all in one bilingual, mobile-first platform.",
+    "primaryCta": "See how it works",
+    "secondaryCta": "Explore the two modes",
+    "trustMoney": "Simulated money only",
+    "trustBilingual": "English + हिंदी",
+    "trustMobile": "Built mobile-first",
+    "preview": {
+      "issueLabel": "Community issue",
+      "live": "Live",
+      "issueTitle": "Broken streetlight on MG Road",
+      "issueMeta": "{{count}} neighbours supporting",
+      "fundLabel": "Community fund",
+      "fundRaised": "₹425 raised",
+      "fundRemaining": "₹75 to Escalate",
+      "spotlightLabel": "Spotlight · ₹200",
+      "escalateLabel": "Escalate · ₹500",
+      "issueFooter": "Every ₹1 moves this closer to action.",
+      "helperLabel": "Verified helper",
+      "helperName": "Ramesh Kumar",
+      "helperRole": "Electrician",
+      "helperMeta": "1.2 km away · 4.8 rating",
+      "helperNote": "Phone revealed only after Connect",
+      "connect": "Connect",
+      "status": "Live in your neighbourhood"
+    }
+  },
+  "how": {
+    "eyebrow": "How Samadhan works",
+    "title": "Three simple steps. Real collective pressure.",
+    "subtitle": "Global mode turns small contributions into visible, escalating civic campaigns.",
+    "stepLabel": "Step {{number}}",
+    "step1Title": "Report the issue",
+    "step1Text": "Add a photo, drop a map pin and pay a simulated ₹5 report fee. Your issue joins the public feed.",
+    "step2Title": "Neighbours add +1",
+    "step2Text": "People facing the same problem support it for ₹1 each. Every contribution grows the issue fund.",
+    "step3Title": "Unlock action",
+    "step3Text": "At ₹200 the issue earns a Spotlight campaign. At ₹500 it escalates with a formal email to the authority."
+  },
+  "modes": {
+    "eyebrow": "One platform, two ecosystems",
+    "title": "Pick the mode that fits the need.",
+    "subtitle": "Public problems need collective pressure. Personal needs need a trusted pair of hands.",
+    "global": {
+      "label": "Global Mode",
+      "tagline": "For public civic problems",
+      "title": "Fix what affects everyone.",
+      "description": "Report broken roads, garbage dumps, water outages and dead streetlights. Neighbours chip in, and the fund unlocks social and formal escalation.",
+      "point1": "₹5 to report · ₹1 to support",
+      "point2": "₹200 Spotlight · ₹500 Escalate",
+      "point3": "Bilingual posts and authority emails",
+      "previewLabel": "Community fund",
+      "previewAmount": "₹425 of ₹500",
+      "previewSupporters": "24 supporters",
+      "note": "Full experience coming soon"
+    },
+    "local": {
+      "label": "Local Mode",
+      "tagline": "For trusted nearby help",
+      "title": "Find help you can verify.",
+      "description": "Discover admin-verified plumbers, electricians, cab drivers, cleaners, carpenters and locksmiths near you — then connect safely.",
+      "point1": "Verified helpers within 2–10 km",
+      "point2": "Call and WhatsApp after Connect",
+      "point3": "Reviews only from real connections",
+      "previewHelperName": "Ramesh Kumar",
+      "previewHelperRole": "Electrician · 1.2 km",
+      "previewRating": "4.8 rating",
+      "previewConnect": "Connect",
+      "note": "Full experience coming soon"
+    }
+  },
+  "trust": {
+    "eyebrow": "Trust by design",
+    "title": "Built for trust from day one.",
+    "subtitle": "A civic platform only works when people feel safe using it. These rules are part of the architecture, not an afterthought.",
+    "item1Title": "Simulated money",
+    "item1Text": "Every fee and fund is simulated in integer paise. No real payments are handled.",
+    "item2Title": "Emergency first",
+    "item2Text": "For emergencies, always call 112. Medical services are intentionally excluded.",
+    "item3Title": "Fact-only campaigns",
+    "item3Text": "Public posts use facts, photos and official handles — never personal attacks.",
+    "disclaimerTitle": "Not an official government portal",
+    "disclaimerText": "Samadhan records and amplifies public issues transparently. It never claims government authority or commands officials."
+  },
+  "health": {
+    "label": "Backend status",
+    "checking": "Checking backend…",
+    "online": "Backend online · DB connected",
+    "degraded": "Backend online · DB not connected",
+    "offline": "Backend offline",
+    "retry": "Retry health check"
+  },
+  "footer": {
+    "explore": "Explore",
+    "tagline": "A bilingual civic-utility prototype built for community problem-solving.",
+    "disclaimer": "Not an official government portal. Samadhan records and amplifies public issues transparently.",
+    "simulated": "College prototype · Simulated money only",
+    "copyright": "© {{year}} Samadhan"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "samadhan-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Samadhan API — Phase 0 foundation (Express + Mongoose + Zod)",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "src"
+    ],
+    "ext": "js,json",
+    "ignore": [
+      "src/**/*.test.js"
+    ]
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "mongoose": "^9.13.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
