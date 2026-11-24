@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
 import Logo from '@/components/Logo';
-import { Badge } from '@/components/ui/badge';
 
 export default function Footer() {
   const { t } = useTranslation();
@@ -14,22 +13,19 @@ export default function Footer() {
           <div className="max-w-sm space-y-3">
             <Logo />
             <p className="text-sm leading-relaxed text-muted-foreground">{t('footer.tagline')}</p>
-            <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
-              {t('common.phase')}
-            </Badge>
           </div>
 
           <nav className="flex flex-col gap-2 text-sm" aria-label={t('nav.main')}>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               {t('footer.explore')}
             </p>
-            <a href="#how-it-works" className="text-muted-foreground transition-colors hover:text-foreground">
+            <a href="/#how-it-works" className="text-muted-foreground transition-colors hover:text-foreground">
               {t('nav.howItWorks')}
             </a>
-            <a href="#modes" className="text-muted-foreground transition-colors hover:text-foreground">
+            <a href="/#modes" className="text-muted-foreground transition-colors hover:text-foreground">
               {t('nav.modes')}
             </a>
-            <a href="#trust" className="text-muted-foreground transition-colors hover:text-foreground">
+            <a href="/#trust" className="text-muted-foreground transition-colors hover:text-foreground">
               {t('trust.eyebrow')}
             </a>
           </nav>

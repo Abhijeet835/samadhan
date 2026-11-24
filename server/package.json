@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "seed:admin": "node src/seed/admin.seed.js"
+    "seed:admin": "node src/seed/admin.seed.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "nodemonConfig": {
     "watch": [
@@ -24,15 +26,20 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.5",
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.13.0",
+    "multer": "^2.5.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "mongodb-memory-server": "^11.4.0",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.3.2",
+    "vitest": "^5.1.1"
   }
 }

@@ -1,6 +1,7 @@
 import { env } from './config/env.js';
 import app from './app.js';
 import { connectDB, disconnectDB } from './config/db.js';
+import { ensureDefaultSettings } from './modules/wallet/wallet.service.js';
 
 const server = app.listen(env.port, () => {
   console.log(`[server] Samadhan API listening on http://localhost:${env.port}`);
@@ -14,7 +15,15 @@ server.on('error', (error) => {
 
 // Start listening first, then connect. The health endpoint must be reachable
 // even while Atlas is connecting or when MONGO_URI is not configured yet.
-connectDB();
+connectDB().then(async (connection) => {
+  if (!connection) return;
+  try {
+    await ensureDefaultSettings();
+    console.log('[settings] Default settings ensured.');
+  } catch (error) {
+    console.error('[settings] Failed to ensure default settings:', error.message);
+  }
+});
 
 let isShuttingDown = false;
 

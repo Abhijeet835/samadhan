@@ -25,7 +25,7 @@ All responses use the standard envelope.
 }
 ```
 
-CORS is restricted to `CLIENT_URL` (default `http://localhost:5173`). Protected endpoints (added in later phases) require a `Bearer <JWT>` token and role/ownership checks.
+CORS is restricted to `CLIENT_URL` (default `http://localhost:5173`). Protected endpoints require a `Bearer <JWT>` access token and are checked for role and resource ownership.
 
 ---
 
@@ -69,16 +69,16 @@ GET /api/health
 
 **Fields**
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `status` | string | Always `"ok"` when the Express process can answer |
-| `db` | string | Mongoose connection state: `connected`, `connecting`, `disconnecting`, `disconnected` |
-| `timestamp` | string | Server time in UTC, ISO 8601 |
+|Field|Type|Description|
+|---|---|---|
+|`status`|string|Always `"ok"` when the Express process can answer|
+|`db`|string|Mongoose connection state: `connected`, `connecting`, `disconnecting`, `disconnected`|
+|`timestamp`|string|Server time in UTC, ISO 8601|
 
 **Notes**
 
 - `db` is derived from `mongoose.connection.readyState` at request time.
-- A `200` response with `db: "disconnected"` is expected in Phase 0 until a valid `MONGO_URI` is supplied. It means the API is reachable but persistence is unavailable.
+- A `200` response with `db: "disconnected"` is expected whenever no valid `MONGO_URI` is supplied. It means the API is reachable but persistence is unavailable.
 - The server logs a clear warning when `MONGO_URI` is missing and keeps running for health testing.
 
 ---
@@ -104,14 +104,14 @@ Public. Register a new user account. Returns the user profile and JWT tokens.
 
 **Fields**
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `name` | string | Yes | Full name (2-100 chars) |
-| `email` | string | Yes | Email address (must be unique) |
-| `phone` | string | Yes | 10-digit Indian mobile number starting with 6-9 |
-| `password` | string | Yes | Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char |
-| `role` | enum | No | Either `CITIZEN` or `HELPER` (default: `CITIZEN`) |
-| `language` | enum | No | Either `en` or `hi` (default: `en`) |
+|Field|Type|Required|Description|
+|---|---|---|---|
+|`name`|string|Yes|Full name (2-100 chars)|
+|`email`|string|Yes|Email address (must be unique)|
+|`phone`|string|Yes|10-digit Indian mobile number starting with 6-9|
+|`password`|string|Yes|Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char|
+|`role`|enum|No|Either `CITIZEN` or `HELPER` (default: `CITIZEN`)|
+|`language`|enum|No|Either `en` or `hi` (default: `en`)|
 
 **Response — 201 Created**
 
@@ -377,22 +377,358 @@ Authorization: Bearer <accessToken>
 
 ---
 
+## Wallet (Phase 2)
+
+All wallet endpoints are protected (`Authorization: Bearer <accessToken>`) and scoped to the logged-in user. All money values are **integer paise** (₹5 = `500`). Formatting to ₹ happens only in the UI.
+
+Fees and thresholds live in the `settings` collection (seeded idempotently on server startup by `ensureDefaultSettings()`):
+
+|Key|Default|Meaning|
+|---|---|---|
+|`reportFeePaise`|`500`|₹5 report fee (Phase 3)|
+|`supportFeePaise`|`100`|₹1 support fee (Phase 4)|
+|`tier1Paise`|`20000`|₹200 Spotlight threshold (Phase 5)|
+|`tier2Paise`|`50000`|₹500 Escalation threshold (Phase 5)|
+|`signupCreditPaise`|`5000`|₹50 signup bonus|
+|`duplicateRadiusM`|`100`|Duplicate detection radius (Phase 4)|
+|`duplicateDays`|`30`|Duplicate detection window (Phase 4)|
+|`demoMode`|`false`|When `true`, effective Tier 1 = `2000` / Tier 2 = `5000` paise|
+
+### `GET /api/wallet`
+
+Protected. Returns the current wallet. If the user has no wallet yet (legacy/seeded account), one is created lazily and credited `signupCreditPaise` exactly once (`SIGNUP_CREDIT` ledger row, idempotencyKey `SIGNUP_CREDIT:<userId>`). New registrations already receive this credit at signup.
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "wallet": {
+      "balancePaise": 5000,
+      "createdAt": "2026-11-24T15:07:42.709Z",
+      "updatedAt": "2026-11-24T15:07:42.709Z"
+    },
+    "topupPacksPaise": [1000, 2000, 5000, 10000]
+  }
+}
+```
+
+**Errors**
+
+- `401 UNAUTHORIZED` — Not authenticated
+
+### `POST /api/wallet/topup`
+
+Protected. Simulated top-up. Credits the wallet and writes a `TOPUP` ledger row inside one MongoDB transaction. The unique `idempotencyKey` guarantees a retry/double-tap with the same key never double-credits.
+
+**Request Body**
+
+```json
+{
+  "amountPaise": 2000,
+  "idempotencyKey": "topup:550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Fields**
+
+|Field|Type|Required|Description|
+|---|---|---|---|
+|`amountPaise`|integer|Yes|One of `1000` / `2000` / `5000` / `10000` (₹10 / 20 / 50 / 100)|
+|`idempotencyKey`|string|Yes|8–100 chars, unique per top-up intent (client generates a UUID)|
+
+**Response — 201 Created** (first processing)
+
+```json
+{
+  "success": true,
+  "data": {
+    "wallet": { "balancePaise": 7000 },
+    "txn": {
+      "_id": "6b05a83eeadfead2e7d11940",
+      "userId": "6b05a83eeadfead2e7d1193e",
+      "type": "TOPUP",
+      "amountPaise": 2000,
+      "idempotencyKey": "topup:550e8400-...",
+      "createdAt": "2026-11-24T15:20:00.000Z"
+    },
+    "idempotent": false
+  }
+}
+```
+
+**Response — 200 OK** (replay of an already-processed key: `idempotent: true`, balance unchanged, no new ledger row)
+
+**Errors**
+
+- `401 UNAUTHORIZED` — Not authenticated
+- `400 VALIDATION_ERROR` — Invalid pack amount or idempotencyKey
+
+### `GET /api/wallet/txns`
+
+Protected. Paginated ledger history for the logged-in user, newest first.
+
+**Query Parameters**
+
+|Param|Type|Default|Description|
+|---|---|---|---|
+|`page`|integer ≥ 1|`1`|Page number|
+|`limit`|integer 1–50|`10`|Rows per page|
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "txns": [
+      {
+        "_id": "6b05a83eeadfead2e7d11940",
+        "userId": "6b05a83eeadfead2e7d1193e",
+        "type": "TOPUP",
+        "amountPaise": 2000,
+        "idempotencyKey": "topup:550e8400-...",
+        "createdAt": "2026-11-24T15:20:00.000Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 10, "total": 2, "totalPages": 1 }
+  }
+}
+```
+
+`type` is one of `TOPUP`, `REPORT_FEE`, `SUPPORT_FEE`, `REFUND`, `PLATFORM_CREDIT`, `SIGNUP_CREDIT`. `amountPaise` is signed: positive credits, negative debits. `issueId` is present on issue-related rows (Phases 3–4).
+
+**Errors**
+
+- `401 UNAUTHORIZED` — Not authenticated
+- `400 VALIDATION_ERROR` — Invalid pagination params
+
+### Internal service (not an endpoint)
+
+`chargeWallet({ userId, type, amountPaise, issueId, idempotencyKey, session })` in `wallet.service.js` is the single atomic money primitive used by later phases (report fee, support fee, refunds). It runs inside a MongoDB transaction, enforces `balancePaise >= 0` via a conditional update (throws `409 INSUFFICIENT_BALANCE`), and honours the unique `idempotencyKey`. Callers may pass their own `session` to join a larger transaction.
+
+---
+
+## Issues (Phase 3)
+
+Public civic issues in Global mode. All money fields are integer paise. The report fee is read from `settings.reportFeePaise` (never hardcoded).
+
+**Lifecycle state machine** — every status change goes through `transitionIssue()`:
+
+- `ACTIVE → ACKNOWLEDGED → IN_PROGRESS → RESOLVED → CLOSED`
+- `REJECTED` is allowed from any non-terminal status (admin only). Rejection refunds **every** contribution atomically (one `REFUND` ledger row per `IssueSupport`, key `REFUND:<supportId>`) and zeroes `fundPaise`.
+- `ACKNOWLEDGED`, `IN_PROGRESS`, `REJECTED`, `CLOSED` are **admin-only**. `RESOLVED` may be set by admin or the reporter.
+- The reporter may reopen (`RESOLVED → ACTIVE`) only within 7 days of `resolvedAt`; otherwise `409 REOPEN_WINDOW_EXPIRED`.
+- Until the Phase 5 lifecycle cron exists, `RESOLVED → CLOSED` is done manually by an admin. The cron will later auto-close issues 7 days after resolution.
+- `status` and `tier` are separate fields. `tier` / `tiersReached` exist on the issue but are only written by the Phase 5 tier engine.
+
+### `GET /api/issues/meta`
+
+Public. Wizard bootstrap metadata.
+
+```json
+{
+  "success": true,
+  "data": { "categories": ["ROAD", "GARBAGE", "WATER", "STREETLIGHT", "SEWAGE", "ELECTRICITY", "PARK", "OTHER"], "reportFeePaise": 500, "maxPhotos": 3 }
+}
+```
+
+### `GET /api/issues`
+
+Public. Paginated feed, newest first by default. `REJECTED` issues are always excluded from the feed.
+
+**Query Parameters**
+
+|Param|Type|Default|Description|
+|---|---|---|---|
+|`page`|integer ≥ 1|`1`|Page number|
+|`limit`|integer 1–50|`12`|Issues per page|
+|`category`|enum|—|Filter by issue category|
+|`status`|enum (not `REJECTED`)|—|Filter by lifecycle status|
+|`q`|string|—|Text search on title + description|
+|`sort`|`latest` / `fund` / `supporters`|`latest`|Sort order|
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "issues": [
+      {
+        "_id": "6b05b761a802b609b3f23cc0",
+        "title": "Broken streetlight on MG Road",
+        "description": "…",
+        "category": "STREETLIGHT",
+        "photos": [],
+        "location": { "type": "Point", "coordinates": [77.5946, 12.9716], "city": "Bangalore" },
+        "reporterId": { "_id": "…", "name": "Phase Two Tester" },
+        "status": "ACTIVE",
+        "tier": 0,
+        "fundPaise": 500,
+        "supporterCount": 1,
+        "viewsCount": 3,
+        "createdAt": "2026-11-24T16:12:00.000Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 12, "total": 1, "totalPages": 1 }
+  }
+}
+```
+
+**Errors** — `400 VALIDATION_ERROR` (invalid query params)
+
+### `POST /api/issues`
+
+Protected (any authenticated user). Creates an issue and charges the report fee **atomically in one MongoDB transaction**: issue document (status `ACTIVE`, `fundPaise = reportFeePaise`, `supporterCount = 1`) + `chargeWallet` REPORT_FEE debit + reporter `IssueSupport` row (`isReporter: true`) + initial timeline row (`null → ACTIVE`). The unique `idempotencyKey` makes retries/double-taps safe: a replay returns the original issue with `idempotent: true` and HTTP 200 (first processing is 201).
+
+**Request Body**
+
+```json
+{
+  "title": "Broken streetlight on MG Road",
+  "description": "Dark stretch after 8 PM affecting commuters… (min 20 chars)",
+  "category": "STREETLIGHT",
+  "photos": ["https://res.cloudinary.com/…/image/upload/…jpg"],
+  "location": {
+    "coordinates": [77.5946, 12.9716],
+    "address": "MG Road, near City Bus Stop",
+    "city": "Bangalore",
+    "state": "Karnataka",
+    "pincode": "560001"
+  },
+  "idempotencyKey": "report:550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+|Field|Type|Required|Description|
+|---|---|---|---|
+|`title`|string|Yes|5–150 chars|
+|`description`|string|Yes|20–2000 chars|
+|`category`|enum|Yes|One of the 8 categories from `/meta`|
+|`photos`|string[]|No|Max 3 Cloudinary URLs|
+|`location.coordinates`|[lng, lat]|Yes|GeoJSON point (2dsphere indexed)|
+|`location.address/city/state/pincode`|string|No|pincode must be 6 digits|
+|`idempotencyKey`|string|Yes|8–100 chars, unique per report intent|
+
+**Errors**
+
+- `401 UNAUTHORIZED` — Not authenticated
+- `400 VALIDATION_ERROR` — Invalid body
+- `409 INSUFFICIENT_BALANCE` — Wallet cannot cover the report fee (nothing is created)
+
+### `GET /api/issues/:issueId`
+
+Public, but sends viewer context when an `Authorization` header is present (`optionalAuth`). `REJECTED` issues are visible only to their reporter and admins.
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "issue": { "…full issue document…" },
+    "updates": [
+      { "_id": "…", "fromStatus": null, "toStatus": "ACTIVE", "actorId": "…", "actorRole": "CITIZEN", "note": null, "createdAt": "…" }
+    ],
+    "viewer": {
+      "isAuthenticated": true,
+      "isReporter": true,
+      "isAdmin": false,
+      "hasSupported": true,
+      "canReopen": false
+    }
+  }
+}
+```
+
+**Errors**
+
+- `400 VALIDATION_ERROR` — `issueId` is not a 24-hex ObjectId
+- `404 ISSUE_NOT_FOUND` — Issue does not exist or is not visible to the viewer
+
+### `POST /api/issues/:issueId/transition`
+
+Protected. The **only** path to change issue status. Uses a conditional update against the current status so concurrent transitions cannot corrupt the machine; writes an `IssueUpdate` timeline row in the same transaction. `REJECTED` triggers the atomic refund of all contributions.
+
+**Request Body**
+
+```json
+{ "status": "ACKNOWLEDGED", "note": "Assigned to ward engineer" }
+```
+
+|Field|Type|Required|Description|
+|---|---|---|---|
+|`status`|enum|Yes|Target status|
+|`note`|string|No|Max 500 chars, stored on the timeline row|
+
+**Errors**
+
+- `401 UNAUTHORIZED` — Not authenticated
+- `400 VALIDATION_ERROR` — Invalid body or issueId
+- `403 FORBIDDEN` — Role not allowed for this transition (e.g. citizen → `ACKNOWLEDGED`, admin reopen, non-reporter `RESOLVED`)
+- `404 ISSUE_NOT_FOUND` — Issue does not exist
+- `409 INVALID_TRANSITION` — Transition not allowed from the current status (message includes `FROM → TO`)
+- `409 REOPEN_WINDOW_EXPIRED` — Reopen attempted more than 7 days after `resolvedAt`
+
+---
+
+## Uploads (Phase 3)
+
+### `POST /api/uploads/image`
+
+Protected. Uploads one image to Cloudinary (`folder: samadhan/issues`) via multer memory storage. Returns `503 CLOUDINARY_NOT_CONFIGURED` when Cloudinary env vars are absent — the report wizard treats photos as optional and lets the user continue.
+
+**Request** — `multipart/form-data`, field name `image`. JPEG/PNG/WebP only, max 5 MB.
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": { "url": "https://res.cloudinary.com/<cloud>/image/upload/v…/samadhan/issues/<id>.jpg", "publicId": "samadhan/issues/<id>" }
+}
+```
+
+**Errors**
+
+- `401 UNAUTHORIZED` — Not authenticated
+- `400 IMAGE_REQUIRED` — No file in the request
+- `400 INVALID_IMAGE_TYPE` — Not JPEG/PNG/WebP
+- `503 CLOUDINARY_NOT_CONFIGURED` — Server has no Cloudinary credentials
+- `502 UPLOAD_FAILED` — Cloudinary rejected the upload
+
+---
+
 ## Error codes
 
-| HTTP | Code | Meaning |
-| --- | --- | --- |
-| 404 | `NOT_FOUND` | No route matches the request |
-| 400 | `VALIDATION_ERROR` | Zod validation failed; the message lists field paths |
-| 401 | `UNAUTHORIZED` | Authentication required |
-| 401 | `TOKEN_EXPIRED` | JWT token has expired |
-| 401 | `INVALID_TOKEN` | JWT token is invalid |
-| 401 | `INVALID_CREDENTIALS` | Wrong email or password |
-| 401 | `INVALID_PASSWORD` | Current password is incorrect |
-| 403 | `FORBIDDEN` | Insufficient permissions |
-| 403 | `ACCOUNT_DISABLED` | User account has been disabled |
-| 404 | `USER_NOT_FOUND` | User not found |
-| 409 | `EMAIL_EXISTS` | Email address already registered |
-| 409 | `PHONE_EXISTS` | Phone number already registered |
-| 500 | `INTERNAL_SERVER_ERROR` | Unexpected server error |
+|HTTP|Code|Meaning|
+|---|---|---|
+|404|`NOT_FOUND`|No route matches the request|
+|400|`VALIDATION_ERROR`|Zod validation failed; the message lists field paths|
+|401|`UNAUTHORIZED`|Authentication required|
+|401|`TOKEN_EXPIRED`|JWT token has expired|
+|401|`INVALID_TOKEN`|JWT token is invalid|
+|401|`INVALID_CREDENTIALS`|Wrong email or password|
+|401|`INVALID_PASSWORD`|Current password is incorrect|
+|403|`FORBIDDEN`|Insufficient permissions|
+|403|`ACCOUNT_DISABLED`|User account has been disabled|
+|404|`USER_NOT_FOUND`|User not found|
+|409|`EMAIL_EXISTS`|Email address already registered|
+|409|`PHONE_EXISTS`|Phone number already registered|
+|409|`INSUFFICIENT_BALANCE`|Wallet debit would make the balance negative|
+|400|`INVALID_AMOUNT`|amountPaise is not a non-zero integer or sign mismatches the txn type|
+|400|`INVALID_TXN_TYPE`|Unknown wallet transaction type|
+|400|`IDEMPOTENCY_KEY_REQUIRED`|Missing idempotencyKey on a wallet charge|
+|500|`SETTING_NOT_FOUND`|Settings key missing (ensureDefaultSettings not run)|
+|404|`ISSUE_NOT_FOUND`|Issue does not exist or is not visible to the viewer|
+|409|`INVALID_TRANSITION`|Status transition not allowed from the current status|
+|409|`REOPEN_WINDOW_EXPIRED`|Reopen attempted more than 7 days after resolution|
+|400|`IMAGE_REQUIRED`|Upload request contained no file|
+|400|`INVALID_IMAGE_TYPE`|Uploaded file is not JPEG/PNG/WebP|
+|502|`UPLOAD_FAILED`|Cloudinary rejected the upload|
+|503|`CLOUDINARY_NOT_CONFIGURED`|Server has no Cloudinary credentials configured|
+|500|`INTERNAL_SERVER_ERROR`|Unexpected server error|
 
-Future phases add domain-specific codes such as `INSUFFICIENT_BALANCE`, `DUPLICATE_FOUND`, `INVALID_TRANSITION` and `RATE_LIMITED`. Every new endpoint must be documented here before phase handoff.
+Future phases add domain-specific codes such as `DUPLICATE_FOUND` (Phase 4) and `RATE_LIMITED` (Phase 7). Every new endpoint must be documented here before phase handoff.

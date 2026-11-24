@@ -4,6 +4,24 @@
 
 ---
 
+## Current Status (read this first)
+
+|Item|Value|
+|---|---|
+|**Phases complete**|0, 1, 2, 3|
+|**Next phase**|4 — Paid +1 support & 100 m duplicate detection|
+|**Server tests**|29/29 passing (`cd server && npm test`: 15 wallet + 14 issues)|
+|**i18n parity**|`en.json` / `hi.json` 282/282 keys|
+|**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
+|**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
+|**Git**|One commit per phase on a `phase-N` branch; merge to `main` after manual testing|
+
+**If you are a new AI session resuming this project:** read `AGENTS.md` → `docs/CONTEXT.md` → this file → `docs/API.md`. Build only the next phase. Do not refactor earlier phases except to fix a documented bug.
+
+**Mid-phase handoff line (use when a session is cut off):** `Phase N IN PROGRESS — done: … | not done: … | files touched: …`
+
+---
+
 ## Phase 0: Foundation ✅
 
 **Completed:** 2026-11-24
@@ -40,8 +58,8 @@
 
 - [x] `.gitignore` — excludes `node_modules`, `.env`, build artifacts
 - [x] Both servers boot cleanly:
-  - Backend: `http://localhost:5000/api/health` → `{ "db": "connected" }`
-  - Frontend: `http://localhost:5173` → landing page loads
+    - Backend: `http://localhost:5000/api/health` → `{ "db": "connected" }`
+    - Frontend: `http://localhost:5173` → landing page loads
 
 ### Manual Test Checklist (Phase 0)
 
@@ -67,13 +85,13 @@
 - [x] Zod validation schemas for auth endpoints
 - [x] User service with bcrypt password hashing
 - [x] Auth endpoints:
-  - `POST /api/auth/register` — Register new user
-  - `POST /api/auth/login` — Login with email/password
-  - `POST /api/auth/refresh` — Refresh access token
-  - `GET /api/auth/me` — Get current user profile
-  - `PATCH /api/auth/profile` — Update profile
-  - `POST /api/auth/change-password` — Change password
-  - `POST /api/auth/switch-mode` — Switch between GLOBAL/LOCAL modes
+    - `POST /api/auth/register` — Register new user
+    - `POST /api/auth/login` — Login with email/password
+    - `POST /api/auth/refresh` — Refresh access token
+    - `GET /api/auth/me` — Get current user profile
+    - `PATCH /api/auth/profile` — Update profile
+    - `POST /api/auth/change-password` — Change password
+    - `POST /api/auth/switch-mode` — Switch between GLOBAL/LOCAL modes
 - [x] Admin seed script (`npm run seed:admin`)
 - [x] Environment config updated with JWT secrets and admin credentials
 
@@ -108,7 +126,7 @@
 6. ✓ Change password → Password updated, can login with new password
 7. ✓ Switch language in profile → UI updates immediately
 8. ✓ Logout → Redirected to home, auth state cleared
-9. ✓ Try accessing `/profile` without login → Can still access (needs ProtectedRoute in Phase 2)
+9. ✓ Try accessing `/profile` without login → was accessible in Phase 1; **fixed in Phase 2** (now redirects to `/login` via `ProtectedRoute`)
 10. ✓ Test API endpoints with curl/Postman:
     - `POST /api/auth/register` with valid data → 201 with tokens
     - `POST /api/auth/login` with admin credentials → 200 with tokens
@@ -118,44 +136,151 @@
 
 ---
 
-## Phase 1: Auth, Roles & Profile (Planned)
+## Phase 2: Simulated Wallet, Settings & Atomic Ledger ✅
 
+**Completed:** 2026-11-24
 
-- [ ] User model with roles (CITIZEN, HELPER, ADMIN)
-- [ ] JWT auth endpoints (register, login, refresh)
-- [ ] Protected routes with auth middleware
-- [ ] Profile page with language and location settings
-- [ ] Mode switch (Global / Local)
-- [ ] Admin seed script
+### Backend
+
+- [x] Wallet module `server/src/modules/wallet/` with strict separation: `settings.model.js`, `wallet.model.js`, `walletTxn.model.js`, `wallet.schema.js` (Zod), `wallet.service.js`, `wallet.controller.js`, `wallet.routes.js`
+- [x] `settings` collection (unique `key`, Mixed `value`) seeded idempotently on startup via `ensureDefaultSettings()` — `$setOnInsert` never overwrites admin-modified values:
+    - `reportFeePaise: 500`, `supportFeePaise: 100`, `tier1Paise: 20000`, `tier2Paise: 50000`, `signupCreditPaise: 5000`, `duplicateRadiusM: 100`, `duplicateDays: 30`, `demoMode: false`
+    - `getEffectiveTierThresholds()` returns ₹20/₹50 thresholds when `demoMode: true` (for Phase 5)
+- [x] `wallets` collection: unique `userId` ref User, integer `balancePaise` (min 0), timestamps
+- [x] `walletTxns` immutable ledger: indexed `userId`, enum `type` (TOPUP / REPORT_FEE / SUPPORT_FEE / REFUND / PLATFORM_CREDIT / SIGNUP_CREDIT), signed integer `amountPaise`, optional `issueId`, **unique `idempotencyKey`**, `(userId, createdAt)` index
+- [x] Atomic `chargeWallet({ userId, type, amountPaise, issueId, idempotencyKey, session })`:
+    - Runs in one MongoDB transaction (`session.withTransaction`); accepts a caller session for Phase 3/4 flows
+    - Debits use a conditional update (`balancePaise: { $gte: debit }`) — balance can never go below 0; throws `409 INSUFFICIENT_BALANCE`
+    - Unique `idempotencyKey` + duplicate-key race fallback — retries/double-taps never double-charge
+- [x] Signup hook in `user.service.js registerUser`: new users get a wallet + `SIGNUP_CREDIT` (₹50 from settings); legacy/seeded users get one lazily on `GET /api/wallet` (exactly once, key `SIGNUP_CREDIT:<userId>`)
+- [x] Endpoints (JWT-protected, standard envelope):
+    - `GET /api/wallet` — balance in paise + top-up packs
+    - `POST /api/wallet/topup` — packs 1000/2000/5000/10000 paise + `idempotencyKey`, atomic credit + `TOPUP` row (201 first time, 200 idempotent replay)
+    - `GET /api/wallet/txns` — paginated, newest-first, user-scoped history
+
+### Frontend
+
+- [x] `ProtectedRoute` component (loading skeleton, redirect to `/login` with return path); `/wallet` and `/profile` now protected; login returns to the original page
+- [x] Wallet feature `client/src/features/wallet/`: `useWallet` hook, `BalanceCard`, `TopupPacks`, `TransactionList`, `money.js` (paise → ₹ display via Intl, EN-IN/HI-IN)
+- [x] `/wallet` page (`pages/WalletPage.jsx`): balance card, ₹10/₹20/₹50/₹100 simulated top-up buttons (disabled while pending, per-click UUID idempotency key), transaction history with pagination
+- [x] Loading skeletons, empty state, inline error + retry, `react-hot-toast` feedback
+- [x] Wallet link in Navbar and BottomNav (authenticated only)
+
+### i18n Translations
+
+- [x] `wallet.*` + `nav.wallet` keys added to BOTH `en.json` and `hi.json` (key parity verified)
+
+### Tests
+
+- [x] Vitest + Supertest + mongodb-memory-server (replica set for real transactions); `npm test` in `server/`
+- [x] 15 tests passing, including:
+    - Repeated top-up/debit with same `idempotencyKey` never double-charges (sequential AND concurrent double-tap)
+    - Balance never below zero: insufficient debit leaves no trace; 20 concurrent ₹5 debits on ₹50 → exactly 10 succeed, balance 0
+    - Fees/thresholds read from `settings` (changed `signupCreditPaise` → new wallet credits the new value; defaults idempotent; demoMode thresholds)
+    - Signup credit on registration, lazy wallet for legacy users, auth rejection, pack validation, pagination
+
+### Documentation
+
+- [x] Updated `docs/API.md` with wallet endpoints, settings table and new error codes
+- [x] Updated `docs/PROGRESS.md` (this block)
+
+### Verification
+
+- [x] Server (5000) and client (5173) boot cleanly; client production build passes
+- [x] Browser-tested: protected redirect, admin lazy ₹50 credit, ₹10 top-up → ₹60 + toast + ledger row, fresh registration → ₹50 signup bonus, full Hindi wallet UI
+
+### Manual Test Checklist (Phase 2)
+
+1. Start both servers (`server: npm run dev`, `client: npm run dev`) → no errors; server logs `[settings] Default settings ensured.`
+2. Visit `http://localhost:5173/wallet` logged out → redirected to `/login`
+3. Login (e.g. admin@samadhan.local / Admin@12345) → returned to `/wallet`, balance ₹50 (legacy signup credit), history shows "Signup bonus +₹50"
+4. Click ₹10 pack → toast "₹10 added to your wallet", balance ₹60, new "Top-up +₹10" row on top
+5. Click ₹100 pack → balance ₹160; buttons disabled while a top-up is in flight
+6. Register a brand-new user → `/wallet` shows ₹50 with a single Signup bonus row
+7. Toggle हिंदी → every wallet string (balance, packs, history, dates) renders in Hindi
+8. Reload the page → balance and history persist; no duplicate signup credit
+9. `cd server && npm test` → 15/15 tests pass
+10. API: `POST /api/wallet/topup` twice with the same `idempotencyKey` → second response `idempotent: true`, balance unchanged; `GET /api/wallet` without token → 401
 
 ---
 
-## Phase 2: Wallet & Settings (Planned)
+## Phase 3: Global Report, Feed, Detail & Lifecycle ✅
 
-- [ ] Wallet and walletTxns collections
-- [ ] Atomic wallet operations in MongoDB transactions
-- [ ] Settings collection with configurable fees/thresholds
-- [ ] Simulated top-up UI
-- [ ] Wallet transaction history
+**Completed:** 2026-11-24
 
----
+### Backend
 
-## Phase 3: Global Report & Feed (Planned)
+- [x] Issues module `server/src/modules/issues/` with strict separation: `issue.model.js`, `issueSupport.model.js`, `issueUpdate.model.js`, `issue.schema.js` (Zod), `issue.service.js`, `issue.controller.js`, `issue.routes.js`
+- [x] `issues` collection with **2dsphere index** on `location`, plus `(category, status, createdAt)`, `(fundPaise)` and text index on `(title, description)`; enums: 8 categories, 6 statuses; `tier` (0/1/2) + `tiersReached` fields ready for Phase 5; `fundPaise`/`supporterCount`/`viewsCount` counters
+- [x] `issueSupports` (unique `(issueId, userId)`, `isReporter` flag) and `issueUpdates` timeline (fromStatus/toStatus/actor/note)
+- [x] Atomic paid report `createIssue()`: fee read from `settings.reportFeePaise`; one transaction creates the issue (status ACTIVE, fund = fee, 1 supporter) + `chargeWallet` REPORT_FEE debit + reporter support row + timeline row; unique `idempotencyKey` with duplicate-key race fallback (replay → 201 first, 200 + `idempotent: true` after); insufficient balance → 409 and **nothing** is created
+- [x] `transitionIssue()` — the only path to change status; conditional update on current status (race-safe); admin-only ACKNOWLEDGED/IN_PROGRESS/REJECTED/CLOSED; RESOLVED by admin or reporter; reporter reopen within 7 days of `resolvedAt` only; REJECTED refunds every contribution atomically (REFUND row per support, key `REFUND:<supportId>`) and zeroes the fund
+- [x] Endpoints: `GET /api/issues/meta` (public), `GET /api/issues` (public feed: filters category/status/q, sort latest|fund|supporters, pagination, REJECTED hidden), `POST /api/issues` (protected), `GET /api/issues/:issueId` (public + optionalAuth viewer context; REJECTED visible only to reporter/admin), `POST /api/issues/:issueId/transition` (protected)
+- [x] Cloudinary config (`config/cloudinary.js`) + uploads module: `POST /api/uploads/image` (multer memory, JPEG/PNG/WebP ≤5 MB, folder `samadhan/issues`); graceful `503 CLOUDINARY_NOT_CONFIGURED` when env vars absent; `.env.example` updated
 
-- [ ] Issue model with 2dsphere index
-- [ ] Report wizard with photo upload (Cloudinary)
-- [ ] Issue feed with filters
-- [ ] Issue detail page
-- [ ] Lifecycle status transitions
+### Frontend
+
+- [x] Global feature `client/src/features/global/`: constants, `StatusBadge`/`CategoryBadge`, `IssueCard`, `IssueFilters` (search + category/status/sort), `Timeline`, `TransitionPanel` (role-aware allowed transitions via `nextStatusesFor`), `useIssuesFeed` (debounced search), `useIssueDetail`, `uploadPhoto`
+- [x] `/report` 4-step wizard (`pages/ReportPage.jsx`, protected): details → location (geolocation button or manual coords + address) → photos (optional, handles 503 gracefully) → confirm & pay (fee/balance/balance-after from live wallet data, simulated-money disclaimer, INSUFFICIENT_BALANCE inline error + wallet link); one idempotencyKey per wizard session reused across retries
+- [x] `/issues` feed page (cards, skeletons, empty state, pagination) and `/issues/:issueId` detail page (badges, photos, location, timeline, fund card, transition panel for admin/reporter) — both public routes
+- [x] Navbar (desktop) + BottomNav (mobile) now include Feed and Report links
+
+### i18n Translations
+
+- [x] `nav.feed`, `nav.report`, full `issues.*` and `report.*` blocks added to BOTH `en.json` and `hi.json` (282/282 key parity verified by script)
+
+### Tests
+
+- [x] 14 new tests in `server/src/modules/issues/issues.test.js` (29/29 total passing), covering: atomic report (balance debit + fund + supporter + timeline + txn with issueId), settings-driven fee change, insufficient balance leaves no trace, idempotent replay, auth/validation rejection, feed filters/sort/pagination/REJECTED-hidden, meta endpoint, detail viewer contexts + 404 + bad id, full admin chain with 5 timeline rows, invalid transitions + terminal REJECTED, reporter permissions, reopen within/after 7 days + admin reopen forbidden, HTTP transition auth, rejection refunds all contributions with no double-refund
+
+### Documentation
+
+- [x] Updated `docs/API.md` with issues + uploads endpoints, state machine rules and new error codes
+- [x] Updated `docs/PROGRESS.md` (this block)
+
+### Verification
+
+- [x] Server (5000) and client (5173) boot cleanly; client production build passes (`vite build`, 2.24s)
+- [x] Browser-tested full flow: empty feed → report wizard (₹50 balance, −₹5 fee preview) → published issue detail (ACTIVE, timeline, fund ₹5, 1 supporter, reporter actions) → feed card; live API check: admin ACKNOWLEDGED + IN_PROGRESS succeeded, IN_PROGRESS→CLOSED rejected with `INVALID_TRANSITION`
+
+### Manual Test Checklist (Phase 3)
+
+1. Start both servers → visit `http://localhost:5173/issues` logged out → feed loads (public), empty state if no issues
+2. Visit `/report` logged out → redirected to `/login`; login → returned to the wizard
+3. Fill details (title ≥5, description ≥20, category) → Next → set location (button or manual coords) → Next → skip photos → confirm shows fee ₹5, your balance, balance-after
+4. "Pay & publish" → redirected to the issue detail page: ACTIVE badge, timeline "Issue reported", community fund ₹5, 1 supporter; wallet history shows "Report fee −₹5"
+5. As reporter, transition panel offers only "Resolved"; as a different citizen, no panel; as admin (admin@samadhan.local / Admin@12345), Acknowledged/In progress/Rejected available
+6. Admin: ACTIVE → ACKNOWLEDGED → IN_PROGRESS → RESOLVED → CLOSED, each adding a timeline row; try IN_PROGRESS → CLOSED directly → error "not allowed"
+7. Reporter reopens a RESOLVED issue within 7 days → back to ACTIVE
+8. Admin rejects an issue → every supporter is refunded (wallet history "Refund"), fund shows ₹0, issue disappears from the public feed but stays visible to its reporter
+9. Report with balance < ₹5 → inline "Insufficient balance" error + wallet link; nothing is created
+10. Toggle हिंदी → feed, wizard, detail, statuses and categories all render in Hindi
+11. `cd server && npm test` → 29/29 tests pass
+12. Without Cloudinary env vars, adding a photo shows "uploads not configured" and the wizard lets you continue
+
+### Known Gaps & Open Decisions (Phase 3)
+
+- **Not built:** `GET /api/issues/mine` and a "My Reports" page. Reporters currently reach their issues via the feed or the wallet ledger. Add in a later phase if time allows.
+- **Lifecycle vs CONTEXT.md §6:** the implementation lets an admin `REJECT` from any non-terminal status, while §6 lists `REJECTED` only from `ACTIVE`. Decide one way and update the other (CONTEXT.md or `transitionIssue`) before Phase 5.
+- **Manual `CLOSED`:** admins close resolved issues by hand until the Phase 5 cron (auto-close after 7 days).
+- **Rejection refunds** are done; taking down social posts on rejection arrives with Phase 6.
+- **Location input** is geolocation or manual coordinates + address. Map picker arrives in Phase 8.
+- **Photos** are optional; without `CLOUDINARY_*` env vars the API returns `503 CLOUDINARY_NOT_CONFIGURED` and the wizard continues.
+- **Tiers:** `tier` / `tiersReached` fields exist but nothing writes them until Phase 5.
 
 ---
 
 ## Phase 4: Support & Duplicate Detection (Planned)
 
-- [ ] 100m duplicate detection with geoNear
-- [ ] Paid +1 support with atomic transactions
-- [ ] Live fund progress meter
+**Reuse from earlier phases:** `chargeWallet({ ..., session })`, `issueSupports` (unique `(issueId, userId)`), `settings.supportFeePaise`, `settings.duplicateRadiusM` / `duplicateDays`, `transitionIssue`.
+
+- [ ] 100 m duplicate detection with `$geoNear` (same category, not CLOSED/REJECTED, last 30 days, skipped when `force === true`); HTTP 409 `DUPLICATE_FOUND` with `existingIssue`
+- [ ] Wire duplicate check into `POST /api/issues` and the report wizard ("Support for ₹1" / "This is different")
+- [ ] Paid +1 support in ONE transaction: no prior support → balance check → debit → `SUPPORT_FEE` txn → insert support → increment `fundPaise` + `supporterCount`; idempotent
+- [ ] Live fund progress meter (toward Tier 1 / Tier 2 thresholds from settings, demo mode aware)
 - [ ] Support history
+- [ ] Tests: double-support blocked, concurrent supports keep `fundPaise` exact, insufficient balance leaves no trace, duplicate detection radius
+- [ ] Do NOT build tier side effects here (`checkTiers` is Phase 5)
 
 ---
 

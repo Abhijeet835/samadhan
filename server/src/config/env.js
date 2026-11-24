@@ -17,6 +17,9 @@ export const env = Object.freeze({
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   adminEmail: (process.env.ADMIN_EMAIL ?? 'admin@samadhan.local').trim(),
   adminPassword: process.env.ADMIN_PASSWORD || 'Admin@12345',
+  cloudinaryCloudName: (process.env.CLOUDINARY_CLOUD_NAME ?? '').trim(),
+  cloudinaryApiKey: (process.env.CLOUDINARY_API_KEY ?? '').trim(),
+  cloudinaryApiSecret: (process.env.CLOUDINARY_API_SECRET ?? '').trim(),
 });
 
 export const isProduction = env.nodeEnv === 'production';

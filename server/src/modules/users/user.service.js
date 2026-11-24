@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import User from './user.model.js';
+import { ensureWallet } from '../wallet/wallet.service.js';
 import {
   createTokenPayload,
   generateAccessToken,
@@ -34,6 +35,14 @@ export async function registerUser(userData) {
     ...userData,
     password: hashedPassword,
   });
+
+  // Create wallet + SIGNUP_CREDIT ledger row. If this fails, registration
+  // still succeeds — GET /api/wallet lazily ensures the wallet exactly once.
+  try {
+    await ensureWallet(user._id);
+  } catch (error) {
+    console.error('[wallet] Signup credit failed, will retry lazily:', error.message);
+  }
 
   // Generate tokens
   const payload = createTokenPayload(user);

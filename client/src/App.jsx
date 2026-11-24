@@ -6,6 +6,11 @@ import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import ProfilePage from '@/pages/ProfilePage';
+import WalletPage from '@/pages/WalletPage';
+import IssuesPage from '@/pages/IssuesPage';
+import IssueDetailPage from '@/pages/IssueDetailPage';
+import ReportPage from '@/pages/ReportPage';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/context/AuthContext';
 
 export default function App() {
@@ -30,7 +35,32 @@ export default function App() {
             <Route index element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/issues" element={<IssuesPage />} />
+            <Route path="/issues/:issueId" element={<IssueDetailPage />} />
+            <Route
+              path="/report"
+              element={
+                <ProtectedRoute>
+                  <ReportPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/wallet"
+              element={
+                <ProtectedRoute>
+                  <WalletPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 
@@ -16,6 +16,7 @@ export function AuthProvider({ children }) {
   );
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Load user on mount if token exists
   useEffect(() => {
@@ -115,7 +116,7 @@ export function AuthProvider({ children }) {
       setTokens(accessToken, refreshToken);
 
       toast.success(`Welcome back, ${loggedInUser.name}!`);
-      navigate('/');
+      navigate(location.state?.from || '/');
       return { success: true };
     } catch (error) {
       const message =

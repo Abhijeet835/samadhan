@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Wallet } from 'lucide-react';
 
 import LanguageToggle from '@/components/LanguageToggle';
 import Logo from '@/components/Logo';
@@ -19,6 +20,18 @@ export default function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label={t('nav.main')}>
+          <Link
+            to="/issues"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {t('nav.feed')}
+          </Link>
+          <Link
+            to="/report"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {t('nav.report')}
+          </Link>
           <a
             href="#how-it-works"
             className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -44,11 +57,19 @@ export default function Navbar() {
           <LanguageToggle />
           
           {isAuthenticated ? (
-            <Link to="/profile">
-              <Button variant="outline" size="sm">
-                {user?.name || t('nav.profile')}
-              </Button>
-            </Link>
+            <>
+              <Link to="/wallet">
+                <Button variant="ghost" size="sm" className="gap-1.5">
+                  <Wallet className="h-4 w-4" aria-hidden="true" />
+                  {t('nav.wallet')}
+                </Button>
+              </Link>
+              <Link to="/profile">
+                <Button variant="outline" size="sm">
+                  {user?.name || t('nav.profile')}
+                </Button>
+              </Link>
+            </>
           ) : (
             <div className="hidden sm:flex items-center gap-2">
               <Link to="/login">

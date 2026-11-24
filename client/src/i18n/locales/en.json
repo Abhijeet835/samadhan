@@ -10,7 +10,6 @@
   "common": {
     "skipToContent": "Skip to content",
     "preview": "Preview",
-    "phase": "Phase 0 foundation",
     "comingSoon": "Full experience coming soon",
     "learnMore": "Learn more",
     "loading": "Loading..."
@@ -29,7 +28,10 @@
     "modeBadge": "Two modes, one platform",
     "login": "Login",
     "register": "Register",
-    "profile": "Profile"
+    "profile": "Profile",
+    "wallet": "Wallet",
+    "feed": "Issues",
+    "report": "Report"
   },
   "hero": {
     "eyebrow": "Civic problems + trusted local help",
@@ -187,5 +189,176 @@
       "mismatch": "Passwords do not match"
     },
     "logout": "Logout"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "subtitle": "Your simulated money for reports, support and top-ups",
+    "balance": {
+      "label": "Available balance",
+      "simulated": "Simulated money only",
+      "note": "No real payments. All amounts are stored in integer paise."
+    },
+    "topup": {
+      "title": "Add money",
+      "subtitle": "Pick a simulated top-up pack",
+      "add": "Add",
+      "pending": "Adding…",
+      "success": "{{amount}} added to your wallet"
+    },
+    "txns": {
+      "title": "Transaction history",
+      "empty": "No transactions yet",
+      "emptyHint": "Your top-ups, fees and credits will appear here.",
+      "page": "Page {{page}} of {{total}}",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "txnTypes": {
+      "TOPUP": "Top-up",
+      "REPORT_FEE": "Report fee",
+      "SUPPORT_FEE": "Support fee",
+      "REFUND": "Refund",
+      "PLATFORM_CREDIT": "Platform credit",
+      "SIGNUP_CREDIT": "Signup bonus"
+    },
+    "errors": {
+      "loadFailed": "Could not load your wallet. Please try again.",
+      "topupFailed": "Top-up failed. Please try again.",
+      "invalidPack": "Please choose a valid top-up pack.",
+      "insufficientBalance": "Insufficient wallet balance."
+    },
+    "retry": "Retry"
+  },
+  "issues": {
+    "fundLabel": "community fund",
+    "supporters_one": "{{count}} supporter",
+    "supporters_other": "{{count}} supporters",
+    "statuses": {
+      "ACTIVE": "Active",
+      "ACKNOWLEDGED": "Acknowledged",
+      "IN_PROGRESS": "In progress",
+      "RESOLVED": "Resolved",
+      "CLOSED": "Closed",
+      "REJECTED": "Rejected"
+    },
+    "categories": {
+      "ROAD": "Roads",
+      "GARBAGE": "Garbage",
+      "WATER": "Water",
+      "STREETLIGHT": "Streetlight",
+      "SEWAGE": "Sewage",
+      "ELECTRICITY": "Electricity",
+      "PARK": "Parks",
+      "OTHER": "Other"
+    },
+    "feed": {
+      "title": "Community issues",
+      "subtitle": "Public civic problems reported and funded by neighbours",
+      "reportCta": "Report an issue",
+      "searchPlaceholder": "Search issues…",
+      "categoryAll": "All categories",
+      "statusAll": "All statuses",
+      "sortLabel": "Sort order",
+      "sortLatest": "Latest first",
+      "sortFund": "Most funded",
+      "sortSupporters": "Most supported",
+      "empty": "No issues found",
+      "emptyHint": "Be the first to report a problem in your area.",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{total}}"
+    },
+    "detail": {
+      "backToFeed": "Back to feed",
+      "reportedBy": "Reported by {{name}}",
+      "timelineTitle": "Timeline",
+      "timelineCreated": "Issue reported",
+      "timelineEmpty": "No updates yet.",
+      "youReporter": "You reported this issue",
+      "supportSoon": "+1 support for ₹1 arrives in the next phase",
+      "walletLink": "Open your wallet"
+    },
+    "transitions": {
+      "adminTitle": "Admin actions",
+      "reporterTitle": "Your actions",
+      "selectStatus": "Move issue to",
+      "selectPlaceholder": "Choose a status…",
+      "selectRequired": "Please choose a status",
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "Add context for the timeline…",
+      "submit": "Update status",
+      "success": "Status updated to {{status}}"
+    },
+    "errors": {
+      "loadFailed": "Could not load issues. Please try again.",
+      "notFound": "This issue does not exist or is not visible.",
+      "forbidden": "You are not allowed to perform this action.",
+      "invalidTransition": "That status change is not allowed. Please refresh.",
+      "reopenExpired": "A resolved issue can only be reopened within 7 days.",
+      "transitionFailed": "Status update failed. Please try again."
+    }
+  },
+  "report": {
+    "title": "Report an issue",
+    "subtitle": "Describe a public civic problem. A simulated ₹5 report fee starts the community fund.",
+    "stepsAria": "Report steps",
+    "steps": {
+      "details": "Details",
+      "location": "Location",
+      "photos": "Photos",
+      "confirm": "Confirm & pay"
+    },
+    "next": "Next",
+    "back": "Back",
+    "useMyLocation": "Use my location",
+    "locating": "Getting location…",
+    "locationSet": "Location captured",
+    "locationFailed": "Could not get your location. Please enter the address below.",
+    "locationUnsupported": "Geolocation is not supported by this browser.",
+    "locationHint": "The map pin is set automatically from your address.",
+    "geocoding": "Locating address…",
+    "geocodeFailed": "We couldn't locate this address. Add more detail (area, city) or use \"Use my location\".",
+    "fields": {
+      "titleLabel": "Title",
+      "titlePlaceholder": "e.g. Broken streetlight on MG Road",
+      "descLabel": "Description",
+      "descPlaceholder": "What is the problem, since when, and who is affected?",
+      "descHint": "Minimum 20 characters",
+      "categoryLabel": "Category",
+      "categoryPlaceholder": "Choose a category…",
+      "addressLabel": "Address",
+      "cityLabel": "City",
+      "stateLabel": "State",
+      "pincodeLabel": "Pincode"
+    },
+    "validation": {
+      "title": "Title must be at least 5 characters",
+      "description": "Description must be at least 20 characters",
+      "category": "Please choose a category",
+      "location": "Please enter the address where the issue is located",
+      "pincode": "Pincode must be 6 digits"
+    },
+    "photos": {
+      "hint": "Optional — up to 3 photos (JPEG/PNG/WebP, max 5 MB each)",
+      "add": "Add photo",
+      "uploading": "Uploading…",
+      "uploaded": "Photo uploaded",
+      "remove": "Remove photo",
+      "invalidType": "Only JPEG, PNG and WebP images are allowed",
+      "tooLarge": "Photo must be 5 MB or smaller",
+      "unavailable": "Photo upload is not configured on this server — you can continue without photos",
+      "failed": "Photo upload failed. Please try again."
+    },
+    "confirm": {
+      "feeLabel": "Report fee (simulated)",
+      "balanceLabel": "Your balance",
+      "afterLabel": "Balance after report",
+      "disclaimer": "Simulated money only — no real payment is made.",
+      "submit": "Pay & publish"
+    },
+    "insufficient": "Insufficient balance — top up first",
+    "openWallet": "Open wallet",
+    "submitFailed": "Could not publish your issue. Please try again.",
+    "success": "Issue reported! Your report fee has been deducted."
   }
 }

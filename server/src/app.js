@@ -5,6 +5,9 @@ import helmet from 'helmet';
 import { env } from './config/env.js';
 import healthRoutes from './modules/health/health.routes.js';
 import userRoutes from './modules/users/user.routes.js';
+import walletRoutes from './modules/wallet/wallet.routes.js';
+import issueRoutes from './modules/issues/issue.routes.js';
+import uploadRoutes from './modules/uploads/uploads.routes.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
 
 const app = express();
@@ -35,6 +38,9 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', userRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/issues', issueRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
