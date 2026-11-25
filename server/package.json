@@ -14,7 +14,8 @@
     "seed:authorities": "node src/seed/authorities.seed.js",
     "demo:on": "node src/scripts/demo-mode.js on",
     "demo:off": "node src/scripts/demo-mode.js off",
-    "job:autoclose": "node src/scripts/run-autoclose.js"
+    "job:autoclose": "node src/scripts/run-autoclose.js",
+    "seed:helpers": "node src/seed/seedHelpers.js"
   },
   "nodemonConfig": {
     "watch": [

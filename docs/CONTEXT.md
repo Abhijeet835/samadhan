@@ -149,11 +149,16 @@ Before creating an issue (unless `force === true`), run `$geoNear` on same-categ
 
 ### Local helpers
 
+- Fixed 9 categories (NO Medical): PLUMBER, ELECTRICIAN, CAB_DRIVER, HOUSE_CLEANING, LOCKSMITH, CARPENTER, PAINTER, PACKERS_MOVERS, GROCERY_DELIVERY. Cab/Auto is a phone directory only (no booking/fares). Local Mode is FREE — no wallet fees.
 - Search only `verificationStatus: 'VERIFIED'`, `isHidden: false`, matching category.
-- `$geoNear` radius: 2 / 5 / 10 km, default **5 km**; default sort nearest, optional top-rated.
-- Phone numbers never appear in search results. `POST /helpers/:id/connect` logs a connection (max 10/day/user) and only then returns `{ phone, whatsappUrl, safetyNote }`. The seeker's phone is never exposed.
-- One review per seeker–helper pair, allowed only after a connection exists. Rating average updates incrementally.
-- Three flags from distinct users automatically hide the helper for admin review.
+- `$geoNear` radius: 2 / 5 / 10 km, default **5 km**; default sort nearest, optional top-rated. Search ALSO respects each helper's own `radiusKm` (a helper serving 2 km is hidden from a seeker 4 km away even with a 10 km search).
+- Phone numbers never appear in search results or public profiles. `POST /helpers/:id/connect` logs a connection and only then returns `{ phone, whatsappUrl, safetyNoteKey }` — `safetyNoteKey` is a translatable i18n key (`local.safetyNote`). The seeker's phone is never exposed.
+- Connect limit: **10 per rolling 24 h** per seeker. A repeat connect to the same helper within 24 h re-reveals the phone without a new row, quota or count. `connectCount` counts DISTINCT seekers (first-ever pair only). Race-safe: insert first, count the window, delete + 429 if over.
+- Sample helpers (`isSample: true`, seeded) return `whatsappUrl: null`; the UI disables Call/WhatsApp with a "demo number" notice.
+- One editable review per seeker–helper pair, allowed only after a connection exists. `ratingAvg`/`ratingCount` are recomputed by aggregation after every create/edit (never incremental).
+- Re-verification: a VERIFIED helper changing phone, categories, serviceLocation or displayName resets to PENDING; other fields never reset it.
+- Three non-dismissed flags from distinct users automatically hide the helper for admin review; admin unhide dismisses existing flags.
+- Free text (displayName, bio, priceHint, review comments) refuses phone-like digit runs and URLs (`CONTACT_IN_TEXT`).
 
 ---
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { HeartHandshake, Inbox, Megaphone } from 'lucide-react';
+import { Handshake, HeartHandshake, Inbox, Megaphone } from 'lucide-react';
 
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { formatPaise, formatTxnDate } from '@/features/wallet/money';
 const TABS = [
   { key: 'reported', endpoint: '/issues/mine', icon: Megaphone },
   { key: 'supported', endpoint: '/issues/mine/supported', icon: HeartHandshake },
+  { key: 'connected', endpoint: '/helpers/mine/connected', icon: Handshake },
 ];
 
 export default function MyActivityPage() {
@@ -31,7 +32,8 @@ export default function MyActivityPage() {
       try {
         const endpoint = TABS.find((x) => x.key === tabKey).endpoint;
         const res = await api.get(endpoint, { params: { page, limit: 10 } });
-        const items = tabKey === 'reported' ? res.data.issues : res.data.supported;
+        const items =
+          tabKey === 'reported' ? res.data.issues : tabKey === 'supported' ? res.data.supported : res.data.items;
         setRows((prev) => (append ? [...prev, ...items] : items));
         setPagination(res.data.pagination);
       } catch {
@@ -99,9 +101,9 @@ export default function MyActivityPage() {
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white py-16 text-center">
               <Inbox className="h-10 w-10 text-slate-300" aria-hidden="true" />
               <p className="font-medium text-slate-700">{t(`myActivity.empty.${tab}`)}</p>
-              <Link to={tab === 'reported' ? '/report' : '/issues'}>
+              <Link to={tab === 'reported' ? '/report' : tab === 'connected' ? '/local/search' : '/issues'}>
                 <Button variant="outline" size="sm" className="mt-2">
-                  {tab === 'reported' ? t('issues.feed.reportCta') : t('myActivity.browseCta')}
+                  {tab === 'reported' ? t('issues.feed.reportCta') : tab === 'connected' ? t('myActivity.findHelpers') : t('myActivity.browseCta')}
                 </Button>
               </Link>
             </div>
@@ -109,6 +111,33 @@ export default function MyActivityPage() {
             <>
               <ul className="space-y-3">
                 {rows.map((row) => {
+                  if (tab === 'connected') {
+                    const helper = row.helper;
+                    if (!helper) return null;
+                    return (
+                      <li key={helper._id}>
+                        <Link
+                          to={`/local/helpers/${helper._id}`}
+                          className="block rounded-xl border border-teal-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-semibold text-slate-900">{helper.displayName}</p>
+                            <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', row.hasReviewed ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700')}>
+                              {row.hasReviewed ? t('myActivity.reviewed') : t('myActivity.leaveReview')}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {helper.categories?.map((c) => (
+                              <span key={c} className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700">{t(`local.categories.${c}`)}</span>
+                            ))}
+                          </div>
+                          <p className="mt-2 text-xs text-slate-400">
+                            {t('myActivity.lastConnected', { date: formatTxnDate(row.lastConnectedAt, i18n.language) })}
+                          </p>
+                        </Link>
+                      </li>
+                    );
+                  }
                   const issue = tab === 'reported' ? row : row.issue;
                   if (!issue) return null;
                   return (

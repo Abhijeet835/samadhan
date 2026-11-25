@@ -14,6 +14,13 @@ import MyActivityPage from '@/pages/MyActivityPage';
 import AdminDispatchPage from '@/pages/AdminDispatchPage';
 import TrendingPage from '@/pages/TrendingPage';
 import AdminSocialPage from '@/pages/AdminSocialPage';
+import AdminHelpersPage from '@/pages/AdminHelpersPage';
+import LocalLayout from '@/features/local/LocalLayout';
+import LocalHomePage from '@/pages/LocalHomePage';
+import HelperSearchPage from '@/pages/HelperSearchPage';
+import HelperProfilePage from '@/pages/HelperProfilePage';
+import HelperRegisterPage from '@/pages/HelperRegisterPage';
+import HelperDashboardPage from '@/pages/HelperDashboardPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/context/AuthContext';
 
@@ -41,6 +48,27 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/issues" element={<IssuesPage />} />
             <Route path="/trending" element={<TrendingPage />} />
+            <Route element={<LocalLayout />}>
+              <Route path="/local" element={<LocalHomePage />} />
+              <Route path="/local/search" element={<HelperSearchPage />} />
+              <Route path="/local/helpers/:helperId" element={<HelperProfilePage />} />
+              <Route
+                path="/local/register"
+                element={
+                  <ProtectedRoute>
+                    <HelperRegisterPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/local/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <HelperDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
             <Route path="/issues/:issueId" element={<IssueDetailPage />} />
             <Route
               path="/report"
@@ -87,6 +115,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['ADMIN']}>
                   <AdminSocialPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/helpers"
+              element={
+                <ProtectedRoute roles={['ADMIN']}>
+                  <AdminHelpersPage />
                 </ProtectedRoute>
               }
             />

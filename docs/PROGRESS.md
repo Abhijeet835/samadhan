@@ -8,13 +8,13 @@
 
 |Item|Value|
 |---|---|
-|**Phases complete**|0, 1, 2, 3, 4, 5, 6|
-|**Next phase**|7 — Local verified helpers, connect, reviews & dashboard|
-|**Server tests**|95/95 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate + 25 tiers/dispatch/cron + 17 social)|
-|**i18n parity**|`en.json` / `hi.json` 444/444 keys|
+|**Phases complete**|0, 1, 2, 3, 4, 5, 6, 7|
+|**Next phase**|8 — Maps, notifications & full admin panel|
+|**Server tests**|120/120 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate + 25 tiers/dispatch/cron + 17 social + 25 helpers incl. 7.1)|
+|**i18n parity**|`en.json` / `hi.json` 584/584 keys|
 |**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
 |**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
-|**Git**|Phases 0–6 committed on `main`|
+|**Git**|Phases 0–6 committed on `main`; Phase 7 uncommitted pending manual testing|
 
 **If you are a new AI session resuming this project:** read `AGENTS.md` → `docs/CONTEXT.md` → this file → `docs/API.md`. Build only the next phase. Do not refactor earlier phases except to fix a documented bug.
 
@@ -447,12 +447,79 @@
 
 ---
 
-## Phase 7: Local Helpers & Reviews (Planned)
+## Phase 7: Local Helpers & Reviews ✅
 
-- [ ] Helper model with verification status
-- [ ] Connect-before-contact flow
-- [ ] Review system with verified connections
-- [ ] Helper dashboard
+**Completed:** 2026-11-25
+
+### Backend (with all prompt overrides)
+
+- [x] Helpers module `server/src/modules/helpers/`: helper/connection/review/helperFlag models, Zod schemas, constants (9 categories, NO Medical), service, controller, routes (static before `/:helperId`)
+- [x] **Roles untouched** (override #1): "is a helper" = Helper document exists; ADMIN cannot register (403); dashboard 404 `HELPER_PROFILE_NOT_FOUND` → client redirects to `/local/register`; test proves a HELPER-role user can still report + support Global issues
+- [x] **isSample** (override #2): seeded helpers `isSample: true`; connect returns `whatsappUrl: null` + `isSample: true`; UI disables Call/WhatsApp with a demo-number notice; seed users get wallets; documented login `helper1@example.org` / `Helper@12345`; idempotent by email
+- [x] **Connect** (override #3): repeat connect within 24 h re-reveals phone with no row/quota/count; `connectCount` counts DISTINCT seekers; race-safe insert-then-count with per-seeker serialization (15 parallel → exactly 10 succeed, test green); per-IP `rateLimit` middleware on search + connect (`RATE_LIMITED`)
+- [x] **Re-verification** (override #4): phone/categories/serviceLocation/displayName change on VERIFIED → PENDING; other fields never reset (both tested)
+- [x] **Dual radius** (override #5): `$geoNear` + `$match $expr` on helper `radiusKm`; seed radiusKm 5–15; radiusKm-2 helper hidden from a 4 km seeker even at 10 km search (tested)
+- [x] **Reviews/flags** (override #6): ratingAvg/ratingCount recomputed by aggregation after create/edit (no drift); flagCount via countDocuments of non-dismissed flags; conditional auto-hide at 3 + `HELPER_AUTO_HIDDEN` audit; admin unhide dismisses flags
+- [x] **Free text** (override #7): `CONTACT_IN_TEXT` for phone-like runs/URLs in displayName, bio, priceHint, review comments
+- [x] **Responses** (override #8): search `{items, pagination}` via `$facet`; phone only in owner dashboard/PATCH + admin; audit snapshots only `{verificationStatus, isHidden, rejectionReason}`
+- [x] Admin queue: `GET /api/admin/helpers` (filters) + `PATCH` (verify/reject/unhide) with before/after audit
+- [x] `npm run seed:helpers`: 30 VERIFIED sample helpers (all 9 categories, 3 pilot cities, 15 within ~4 km of Bengaluru centre) + 2 PENDING; dummy phones/emails
+
+### Frontend (override #9, #10)
+
+- [x] `ModeSwitch` (Global blue | Local teal `#0F766E`) in Navbar; persists in localStorage; syncs via `POST /auth/switch-mode` only when logged in; logged-out users browse `/local` freely
+- [x] `LocalLayout` mounts `EmergencyBanner` (112) ONCE wrapping every `/local/*` route
+- [x] Pages: `/local` (9-category grid + location bar via OSM geocoding + register/dashboard CTAs + Cab directory note), `/local/search` (category pills, 2/5/10 km, nearest/top-rated, HelperCard with distance/rating/connects/price/Available badge, never phone; skeletons/empty "Try 10 km"/error+retry), `/local/helpers/:id` (bio, rating breakdown bars, reviews, Connect → Call/WhatsApp + safety note + remaining; sample warning; review form gated on hasConnected with edit prefill; flag dialog), `/local/register` (protected, address-first location, category multi-select, photo upload, redirects if profile exists), `/local/dashboard` (verification banner PENDING/VERIFIED/REJECTED + hidden warning, Available-now switch, inline editor with re-verification notice, connects log "FirstName L.", reviews)
+- [x] `/my-activity` third tab "Connected helpers" (`/helpers/mine/connected`) with reviewed/leave-review state
+- [x] Separate admin page `/admin/helpers` (override #9 — NOT a 4th dispatch tab): filters, Approve/Reject(reason)/Unhide, Navbar link
+- [x] BottomNav shows Local links (Services/Search/Dashboard/Activity/Wallet) on `/local/*`
+- [x] `local.*`, `adminHelpers.*`, nav + myActivity keys in BOTH locales — parity 584/584
+
+### Tests
+
+- [x] 18 new tests in `helpers.test.js` (113/113 total): onboarding (PENDING, protected fields, duplicate 409, ADMIN 403, dashboard 404), CONTACT_IN_TEXT, re-verification both cases, search (exclusions, nearest/rating sorts, dual radius, no phone), connect (re-reveal free, distinct count, isSample, self/PENDING/hidden blocked, 15 parallel → 10, 11th 429, dashboard privacy), reviews (403/create/edit no-drift/self/contact), flags (3 auto-hide + audit, dup 409, unhide dismisses), admin RBAC + audit 3-field snapshots, route order, HELPER can report+support, mine/connected
+
+### Verification
+
+- [x] `npm test` 113/113; client production build clean; `npm run seed:helpers` idempotent (32 created → 0 created/32 skipped); both dev servers healthy
+- [x] End-to-end API verification: search plumbers (2 items, no phone) → connect (sample: whatsappUrl null, 9 remaining, safetyNoteKey) → review create 5/1 → edit 3/1 (no drift) → register PENDING (hidden) → admin approve (visible) → helper dashboard has phone, seeker dashboard 404 → public profile no phone, dashboard no seeker email
+- [ ] Live browser click-through pending (browser tooling unavailable this session) — UI covered by the production build + the manual checklist below
+
+### Known Gaps & Open Decisions (Phase 7)
+
+- **Flag abuse:** 3 sock-puppet accounts could auto-hide a legitimate helper; admin unhide + audit mitigates, real anti-abuse is a later concern.
+- **No re-flag after unhide (7.1):** dismissed flags keep their unique `(helperId, userId)` row, so the same user cannot flag that helper again even after new misconduct.
+- **Phone ownership unverified (7.1):** nothing proves a helper owns the phone they register; admin verification is manual (call the number) until OTP arrives.
+- **Per-IP rate limiting** is in-memory (single-process prototype scale); resets on restart, not shared across instances, and needs correct `trust proxy` behind a hosting proxy (Phase 9).
+- **Exact location public (7.1):** public helper responses expose the full service address and coordinates — acceptable for a service directory, but a fuzzed/area-only location is a future privacy option.
+- **Connect serialization** is an in-process per-seeker lock — correct for one server; a multi-instance deploy would need a shared lock/transaction.
+- **No Leaflet maps yet** (Phase 8); location input is address-first via OSM Nominatim, same as Global reports.
+- **Sample helpers only** — dummy numbers; Call/WhatsApp disabled for them. Replace with verified real helpers before any production use.
+
+### Phase 7.1 hardening (2026-11-25)
+
+- [x] `assertNoContactInfo` normalises NFKC + Devanagari/Arabic-Indic digits → ASCII + strips zero-width chars before pattern tests (POST and PATCH)
+- [x] `GET /helpers/:id` accepts validated `page`/`limit` — reviews pagination works (page-2 test)
+- [x] Race-safe writes: register catches 11000 → 409 `HELPER_PROFILE_EXISTS`; first-review 11000 retries as edit (parallel tests: one 201+409 / one 201+200, never 500)
+- [x] REJECTED resubmission: changing a REVERIFY field or bio → PENDING + `rejectionReason` cleared; other fields stay REJECTED
+- [x] Normalised re-verification comparison (coords rounded to 5 dp, undefined ≡ '', sorted categories) — unchanged re-sends never reset; real changes do
+- [x] Connect per-IP limit 20/min (21st → 429 `RATE_LIMITED`, tested); limiter exposes a test-only `reset()`
+- [x] `connectLocks` Map entry deleted once its tail settles unreplaced
+- [x] Visibility tests: public GET of PENDING/hidden → 404, owner/admin → 200
+- [x] `seedHelpers.js` refuses to run when `NODE_ENV=production`
+- [x] 25/25 helpers tests (120/120 total)
+
+### Manual Test Checklist (Phase 7) — two citizens + admin
+
+1. `cd server && npm run seed:helpers`; start both servers. Toggle the Navbar switch to **Local** → `/local` shows the 112 banner + 9 categories
+2. Set location ("Use my location" or type "Koramangala, Bengaluru") → Search → Plumber: cards show distance/rating/connects/price, **no phone**; try Nearest vs Top rated and 2/5/10 km
+3. Logged out: open a helper → "Login to connect". Login as citizen A (`phase2.tester@example.com` / `Test@12345`) → Connect → sample warning + disabled Call/WhatsApp + safety note + "9 connects left today"
+4. Leave a 5★ review → average updates; edit to 3★ → average recomputes, count stays 1. Try reviewing without connecting (citizen B) → "Connect first"
+5. Citizen B: register a helper at `/local/register` → PENDING banner, hidden from search. Admin (`admin@samadhan.local`) → `/admin/helpers` → Approve → now searchable
+6. Admin: Reject with reason → red banner + reason on the helper dashboard; flag a helper from 3 accounts → auto-hidden; Unhide → back in search, flags dismissed
+7. Helper login `helper1@example.org` / `Helper@12345` → dashboard: Available-now switch, edit phone → verification resets to PENDING (notice shown)
+8. `/my-activity` → "Connected helpers" tab shows connected helpers with review state
+9. Toggle हिंदी → every Local screen translates (584/584 keys); `npm test` → 113/113
 
 ---
 

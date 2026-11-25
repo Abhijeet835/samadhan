@@ -908,6 +908,56 @@ Admin-only. Re-runs `checkTiers` after threshold changes. Already-claimed tiers 
 
 ---
 
+## Local helpers (Phase 7)
+
+FREE hyperlocal directory of admin-verified helpers — NO wallet fees. Medical help is intentionally excluded (emergencies → 112). Cab/Auto is a phone directory only. "Is a helper" = a Helper document exists for the user; `user.role` and JWT claims are unchanged. ADMIN accounts cannot register a helper profile.
+
+**Safety guarantees:** only VERIFIED non-hidden helpers in search; phone NEVER in search/public profiles (owner dashboard/PATCH + admin only); seeker PII never exposed to helpers; reviews require a prior Connection; 3 distinct flags auto-hide.
+
+### `GET /api/helpers/meta`
+
+Public. `{ categories: [9 local categories], radii: [2,5,10], dailyConnectLimit: 10 }`.
+
+### `GET /api/helpers/search`
+
+Public, per-IP rate-limited. Query: `category` (optional), `lat`, `lng` (required), `radiusKm` (2|5|10, default 5), `sort` (nearest|rating), `page`, `limit`. `$geoNear` (spherical, key `serviceLocation`) + a `$match` enforcing the helper's own `radiusKm`; `$facet` pagination. Response `{ items, pagination }`. Items include rounded `distanceM`, displayName, photoUrl, categories, experienceYears, priceHint, isAvailable, ratingAvg, ratingCount, connectCount, serviceLocation — **never phone**.
+
+### `POST /api/helpers`
+
+Protected. Register ONE helper profile (unique userId → `409 HELPER_PROFILE_EXISTS`, including a duplicate-key race on parallel requests; ADMIN → `403 FORBIDDEN`). Body: displayName, phone (10-digit 6-9), categories (1–4), experienceYears, bio (20–600), priceHint, serviceLocation {coordinates, address, city, state, pincode}, radiusKm (1–25), photoUrl. Always created `PENDING`; client cannot set verification/counts. Free text with phone-like runs or URLs → `400 CONTACT_IN_TEXT` — input is normalised first (NFKC, Devanagari/Arabic-Indic digits → ASCII, zero-width chars stripped), so obfuscated numbers are caught too.
+
+### `GET /api/helpers/me/dashboard` · `PATCH /api/helpers/me`
+
+Protected, owner-only. No profile → `404 HELPER_PROFILE_NOT_FOUND` (client redirects to `/local/register`). Dashboard returns the profile **including phone**, stats, privacy-safe connections (`seekerName: "FirstName L."` + connectedAt only) and reviews. PATCH updates owner fields only; changing phone/categories/serviceLocation/displayName on a VERIFIED helper resets it to PENDING (response reflects this); comparison is normalised (coordinates rounded to 5 decimals, undefined ≡ '', categories sorted) so re-sending unchanged values never resets. A REJECTED helper changing any of those fields **or bio** is a resubmission → PENDING with `rejectionReason` cleared. isAvailable/priceHint/radiusKm/photoUrl never reset verification.
+
+### `GET /api/helpers/mine/connected`
+
+Protected. Deduplicated helpers the caller connected with, most recent first: `{ helper, lastConnectedAt, hasReviewed }` — never phone.
+
+### `GET /api/helpers/:helperId`
+
+Public + optionalAuth. Query `page`/`limit` (1–50, default 10) paginates the reviews list. Non-VERIFIED/hidden → `404 HELPER_NOT_FOUND` unless owner/admin. Returns public profile (no phone), `ratingBreakdown {1..5}`, paginated reviews (`reviewerName: "FirstName L."`), and `viewer { isAuthenticated, isOwner, hasConnected, hasFlagged, myReview }`.
+
+### `POST /api/helpers/:helperId/connect`
+
+Protected, per-IP rate-limited (**20 requests/minute** → `429 RATE_LIMITED`). Helper must be VERIFIED + visible (else 404); self-connect → `409 CANNOT_CONNECT_SELF`. Rolling 24 h limit of 10: a repeat connect to the same helper within 24 h re-reveals the phone with NO new row/quota/count; otherwise insert-first then count the window — over limit deletes the row and returns `429 CONNECT_LIMIT_EXCEEDED`. `connectCount` increments only on a pair's first-ever connection. Returns `{ phone, whatsappUrl, safetyNoteKey: "local.safetyNote", remainingToday, isSample }`. Sample helpers (`isSample`) return `whatsappUrl: null` (UI disables Call/WhatsApp).
+
+### `POST /api/helpers/:helperId/review`
+
+Protected. Requires a prior Connection (`403 CONNECTION_REQUIRED`); self-review → `409 CANNOT_REVIEW_SELF`. Body `{ rating 1–5, comment? ≤500 }` (CONTACT_IN_TEXT enforced). One editable review per pair: 201 create / 200 edit; parallel first reviews resolve via the unique index (one 201 + one 200, never a 500). `ratingAvg`/`ratingCount` recomputed by aggregation — no drift. Returns `{ review, ratingAvg, ratingCount, updated }`.
+
+### `POST /api/helpers/:helperId/flag`
+
+Protected. Body `{ reason 5–300 }`. Self-flag → `409 CANNOT_FLAG_SELF`; duplicate → `409 ALREADY_FLAGGED`. flagCount = non-dismissed flags; at 3 the helper is conditionally auto-hidden + `HELPER_AUTO_HIDDEN` audit. Returns `{ flagCount, isHidden }`.
+
+### `GET /api/admin/helpers` · `PATCH /api/admin/helpers/:helperId`
+
+Admin-only + audit before/after (snapshots carry ONLY `{verificationStatus, isHidden, rejectionReason}`). GET filters: verificationStatus, isHidden, category, pagination (rows include phone + user email — admin only). PATCH sets `verificationStatus: VERIFIED|REJECTED` (+ optional rejectionReason) or `isHidden: true|false`. Unhide dismisses existing flags and zeroes flagCount.
+
+Seed: `npm run seed:helpers` — 30 sample VERIFIED helpers across all 9 categories and the 3 pilot cities (15 clustered within ~4 km of Bengaluru centre) + 2 PENDING; dummy phones 9000000001–32, `@example.org` emails, `isSample: true`, idempotent by email. Documented demo login: `helper1@example.org` / `Helper@12345`.
+
+---
+
 ## Error codes
 
 |HTTP|Code|Meaning|
@@ -937,6 +987,17 @@ Admin-only. Re-runs `checkTiers` after threshold changes. Already-claimed tiers 
 |404|`AUTHORITY_NOT_FOUND`|Authority does not exist|
 |404|`DISPATCH_NOT_FOUND`|Dispatch row does not exist|
 |409|`DISPATCH_NOT_RETRYABLE`|Row is not FAILED or attempts exhausted|
+|409|`HELPER_PROFILE_EXISTS`|User already has a helper profile|
+|404|`HELPER_PROFILE_NOT_FOUND`|No helper profile for this user (dashboard)|
+|404|`HELPER_NOT_FOUND`|Helper missing, non-VERIFIED or hidden for this viewer|
+|409|`CANNOT_CONNECT_SELF`|Cannot connect to your own helper profile|
+|429|`CONNECT_LIMIT_EXCEEDED`|10 connects per rolling 24 h reached|
+|403|`CONNECTION_REQUIRED`|Must connect before reviewing|
+|409|`CANNOT_REVIEW_SELF`|Cannot review your own helper profile|
+|409|`ALREADY_FLAGGED`|User already flagged this helper|
+|409|`CANNOT_FLAG_SELF`|Cannot flag your own helper profile|
+|400|`CONTACT_IN_TEXT`|Phone-like digit run or URL in free text|
+|429|`RATE_LIMITED`|Per-IP request budget exhausted|
 |409|`INVALID_TRANSITION`|Status transition not allowed from the current status|
 |409|`REOPEN_WINDOW_EXPIRED`|Reopen attempted more than 7 days after resolution|
 |400|`IMAGE_REQUIRED`|Upload request contained no file|
@@ -945,7 +1006,7 @@ Admin-only. Re-runs `checkTiers` after threshold changes. Already-claimed tiers 
 |503|`CLOUDINARY_NOT_CONFIGURED`|Server has no Cloudinary credentials configured|
 |500|`INTERNAL_SERVER_ERROR`|Unexpected server error|
 
-Future phases add domain-specific codes such as `RATE_LIMITED` (Phase 7). Every new endpoint must be documented here before phase handoff.
+Every new endpoint must be documented here before phase handoff.
 
 ---
 

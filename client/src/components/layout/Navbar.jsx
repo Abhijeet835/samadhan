@@ -4,7 +4,7 @@ import { Wallet } from 'lucide-react';
 
 import LanguageToggle from '@/components/LanguageToggle';
 import Logo from '@/components/Logo';
-import ModeBadge from '@/components/ModeBadge';
+import ModeSwitch from '@/components/ModeSwitch';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 
@@ -31,6 +31,12 @@ export default function Navbar() {
             className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {t('nav.trending')}
+          </Link>
+          <Link
+            to="/local"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-teal-700 transition-colors hover:bg-teal-50 hover:text-teal-800"
+          >
+            {t('nav.localServices')}
           </Link>
           <Link
             to="/report"
@@ -60,6 +66,12 @@ export default function Navbar() {
               >
                 {t('nav.adminSocial')}
               </Link>
+              <Link
+                to="/admin/helpers"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-50 hover:text-violet-700"
+              >
+                {t('nav.adminHelpers')}
+              </Link>
             </>
           )}
           <a
@@ -83,7 +95,7 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <ModeBadge />
+          <ModeSwitch />
           <LanguageToggle />
           
           {isAuthenticated ? (
