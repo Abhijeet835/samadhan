@@ -8,10 +8,10 @@
 
 |Item|Value|
 |---|---|
-|**Phases complete**|0, 1, 2, 3, 4, 5, 6, 7|
-|**Next phase**|8 — Maps, notifications & full admin panel|
-|**Server tests**|120/120 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate + 25 tiers/dispatch/cron + 17 social + 25 helpers incl. 7.1)|
-|**i18n parity**|`en.json` / `hi.json` 584/584 keys|
+|**Phases complete**|0, 1, 2, 3, 4, 5, 6, 7 (+7.1), 8 (8A+8B)|
+|**Next phase**|9 — Polish & deploy|
+|**Server tests**|137/137 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate + 25 tiers/dispatch/cron + 17 social + 25 helpers + 7 notifications/maps + 10 admin)|
+|**i18n parity**|`en.json` / `hi.json` 740/740 keys|
 |**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
 |**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
 |**Git**|Phases 0–6 committed on `main`; Phase 7 uncommitted pending manual testing|
@@ -523,11 +523,57 @@
 
 ---
 
-## Phase 8: Maps, Notifications & Admin Panel (Planned)
+## Phase 8A: Maps & Notifications ✅
 
-- [ ] Leaflet map integration
-- [ ] Notification center
-- [ ] Full admin panel (users, issues, helpers, settings)
+**Completed:** 2026-11-25
+
+- [x] Pinned leaflet@1.9.4 + react-leaflet@4.2.1 + react-leaflet-cluster@2.1.0 (React 18-safe); OSM tiles, attribution, divIcon pins (no image assets), tier rings, `relative isolate z-0` wrappers, leaflet CSS only in lazy map modules, `.leaflet-container img{max-width:none}`; all maps React.lazy + Suspense (MapShell chunk ~156 KB isolated; main-chunk growth from maps ≈ 0)
+- [x] `features/maps/`: geo.js ([lng,lat]↔[lat,lng] rule), pins.js, MapShell (tile-error fallback), MapLegend, useGeolocation, LocationPicker (draggable/click/locate + throttled cached reverse-geocode ≥1.1 s, Accept-Language), GlobalMap, HelperMap, IssueLocationMap, HelperAreaMap
+- [x] `GET /api/issues/map` (public, 60/min): bbox `$geoWithin` Polygon, category/status/minTier filters, REJECTED excluded, tier/fund sort, limit+1 → truncated, 240px Cloudinary thumb, NO reporter fields; BBOX_INVALID / BBOX_TOO_LARGE
+- [x] /map page + IssuesPage List|Map tabs + IssueDetail location map + OSM link; LocationPicker integrated into ReportPage, HelperRegister (radius circle), ProfilePage (homeLocation via existing PATCH), LocalHomePage (use saved home)
+- [x] Helper public-location privacy: search/public-profile/connected round coords to 3 dp + omit address; owner/admin keep exact; HelperProfile approximate-area circle
+- [x] Notifications module: model (TTL 90 d, partial unique dedupe), failure-isolated `notifyUsers` after commit; hooks for tier winner, transitions (actor excluded), REJECTED per-user refundPaise, helper events; endpoints list/unread-count/read/read-all (ownership 404, rateLimit 120/min)
+- [x] Frontend: useNotifications (30 s visibility-aware poll, backoff), header bell badge (99+ cap), /notifications page (All/Unread, Today/Earlier, deep links, mark-all, t()-rendered types)
+- [x] 7 new tests (maps bbox/filters/truncated/errors/route-order/no-PII, privacy, notifications ownership/dedupe/fan-out/isolation/indexes)
+
+## Phase 8B: Full Admin Panel ✅
+
+**Completed:** 2026-11-25
+
+- [x] Audit foundation: AuditLog extended (entity/entityId/before/after + indexes, backward compatible); `utils/audit.util.js` writeAudit with per-entity PII-free whitelists; new mutations audit in-transaction; no audit update/delete endpoints
+- [x] `assertNoContactInfo` moved to `utils/contactGuard.util.js` (B6), shared by helpers + authority-reply
+- [x] Admin issues: list (q/status/tier/category/city/flagged/hasFailedActions/sort), moderation detail (timeline, contributors, dispatch/social summary, flags, authority, allowedTransitions reused from the state machine), transition wrapper (REJECTED note ≥10), assign authority (active only), authority-reply (contact guard + notification), platform credit
+- [x] Platform credit: `platformCreditPaise` on Issue, `platformCreditMaxPaise` setting (50000), ONE transaction conditional on open status + IssueUpdate kind PLATFORM_CREDIT (unique-sparse idempotencyKey) + audit; idempotent replay, key-conflict 409, max bound 400, terminal 409; after commit checkTiers → tierUnlocked; NOT refunded on rejection; invariant fundPaise = Σ supports + credit
+- [x] IssueUpdate gains kind/authorityId/amountPaise/idempotencyKey (toStatus nullable); public timeline renders kinds distinctly + "includes ₹X platform credit"
+- [x] issueFlags collection + public `POST /issues/:id/flag` (unique, own blocked, non-terminal only, rate-limited, NEVER auto-hides) + admin dismiss; IssueDetail "Report this issue" dialog
+- [x] Admin users: safe-field list/detail (wallet + last 10 txns + counts), PATCH isActive only (self/admin target 403 FORBIDDEN_TARGET; disable hides helper in-transaction; disabled token rejected 403 by authenticate)
+- [x] Admin settings (whitelist + bounds + tier2>tier1 cross-check, in-transaction audit, immediate effect) + categories (disabledIssueCategories/disabledHelperCategories; cannot disable OTHER/all; meta enabled-only; create rejects CATEGORY_DISABLED)
+- [x] Admin dashboard (7/30/90 d, zero-filled UTC series, integer paise, simulatedRevenue = fees − refunds, attention list) + audit viewer (filters, before→after diff, legacy rows)
+- [x] AdminLayout (sidebar/mobile tabs) wrapping existing Dispatch/Social/Helpers pages + new Dashboard/Issues/Users/Settings/Audit; single "Admin" Navbar link; all admin routes lazy + roles ADMIN; Recharts@2.15.4 lazy (AdminCharts ~437 KB isolated)
+- [x] 10 new tests (RBAC matrix, rejection end-to-end, credit idempotency/invariant/tier/not-refunded/bounds, reply guard, flags, users, settings, categories, dashboard, audit)
+
+### Known Gaps & Open Decisions (Phase 8)
+
+- **OSM/Nominatim** tile + geocoding usage is prototype-only (1 req/s policy); production needs a tile host / geocoding key.
+- **Helper coordinates approximated, not hidden** (3 dp ≈ 110 m) — public still shows city/pincode; exact area is a future privacy option.
+- **Polling, not push** for notifications (30 s) and maps refetch (moveend debounce) — no websockets in the stack.
+- **In-memory rate limiting** needs correct `trust proxy` behind a host (Phase 9).
+- **Already-processed Tier-2 EMAIL** keeps its original authority when an admin reassigns authority later (dispatch logic untouched by design); recheck-tiers does not re-send SENT rows.
+- **Platform credit** is admin-only simulated money, not a wallet txn, and is not refunded on rejection (fund zeroes as before).
+- **Dashboard aggregations** are bounded but unindexed for some series at very large scale; fine for prototype data.
+
+### Manual Test Checklist (Phase 8) — admin + two citizens + helper
+
+1. Start both servers; `npm run seed:helpers`. Login as admin → single "Admin" link → /admin dashboard (KPIs, charts, attention list, 7/30/90 toggle)
+2. Citizens A & B: report + support an issue; toggle हिंदी → bell shows unread; /notifications lists tier/status events in Hindi; click deep-links
+3. /map: pins cluster, filters + Spotlight toggle work, pin → preview → View details; IssuesPage List|Map tabs; issue detail shows location map + OSM link
+4. Report wizard / helper register / profile: drag pin → address autofills; profile saves home location; LocalHome "use saved home"
+5. Local search List|Map toggle; helper profile shows approximate-area circle (no exact address publicly)
+6. Admin → Issues → open issue: assign authority, record reply (try a phone number → blocked), add ₹10 credit (crosses tier in demo mode → tierUnlocked), Reject (reason ≥10, refunds shown), dismiss flags
+7. Citizen B flags an issue (own issue blocked); admin sees flag, dismisses
+8. Admin → Users: disable a helper-role user → login rejected, helper hidden; cannot disable self/admin
+9. Admin → Settings: change report fee → next report uses it; try tier2 ≤ tier1 → blocked; disable a category → meta hides it + create rejected; demo banner shows when demoMode on
+10. Admin → Audit: every mutation listed with before→after diff, no PII; `npm test` → 137/137
 
 ---
 

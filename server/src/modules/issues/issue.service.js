@@ -3,12 +3,14 @@ import mongoose from 'mongoose';
 import Issue, { ISSUE_CATEGORIES } from './issue.model.js';
 import IssueSupport from './issueSupport.model.js';
 import IssueUpdate from './issueUpdate.model.js';
+import IssueFlag from '../admin/issueFlag.model.js';
 import Wallet from '../wallet/wallet.model.js';
 import WalletTxn from '../wallet/walletTxn.model.js';
 import { chargeWallet, getEffectiveTierThresholds, getSetting } from '../wallet/wallet.service.js';
 import { checkTiers } from '../tiers/tier.service.js';
 import { cancelOpenDispatchForIssue, getEscalationSummary } from '../dispatch/dispatch.service.js';
 import { removeIssuePostsRemote, takedownIssuePosts } from '../social/social.service.js';
+import { notifyUsers } from '../notifications/notification.service.js';
 import { ApiError } from '../../utils/apiResponse.js';
 
 /**
@@ -26,6 +28,27 @@ const ALLOWED_TRANSITIONS = Object.freeze({
 
 const ADMIN_ONLY = ['ACKNOWLEDGED', 'IN_PROGRESS', 'REJECTED', 'CLOSED'];
 const SUPPORTABLE_STATUSES = ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'];
+
+// Phase 8B: reuse the single state machine for admin UI (no duplicated rules).
+export function getAllowedTransitions(status) {
+  return [...(ALLOWED_TRANSITIONS[status] ?? [])];
+}
+
+// Phase 8B B8: community flags NEVER auto-hide issues (money is involved).
+export async function flagIssue({ userId, issueId, reason, comment }) {
+  const issue = await Issue.findById(issueId);
+  if (!issue) throw new ApiError('Issue not found.', 404, 'ISSUE_NOT_FOUND');
+  if (['CLOSED', 'REJECTED'].includes(issue.status)) throw new ApiError('Cannot flag a terminal issue.', 409, 'ISSUE_NOT_OPEN');
+  if (String(issue.reporterId) === String(userId)) throw new ApiError('You cannot flag your own issue.', 409, 'CANNOT_FLAG_OWN_ISSUE');
+  try {
+    await IssueFlag.create({ issueId, userId, reason, comment });
+  } catch (error) {
+    if (error?.code === 11000) throw new ApiError('You have already flagged this issue.', 409, 'ALREADY_FLAGGED');
+    throw error;
+  }
+  const flagCount = await IssueFlag.countDocuments({ issueId, dismissed: false });
+  return { flagCount };
+}
 
 /**
  * Nearest open issue of the SAME category within settings.duplicateRadiusM
@@ -70,6 +93,11 @@ export async function findDuplicate({ category, coordinates }) {
  */
 export async function createIssue({ reporterId, data }) {
   const { idempotencyKey, force, ...issueData } = data;
+
+  const disabled = await getSetting('disabledIssueCategories');
+  if ((disabled ?? []).includes(issueData.category)) {
+    throw new ApiError('This category is currently disabled.', 400, 'CATEGORY_DISABLED');
+  }
 
   const existingTxn = await WalletTxn.findOne({ idempotencyKey });
   if (existingTxn?.issueId) {
@@ -360,6 +388,73 @@ export async function listIssues(query) {
   };
 }
 
+const MAP_OPEN_STATUSES = ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+
+function cloudinaryThumb(url) {
+  if (typeof url === 'string' && url.includes('res.cloudinary.com') && url.includes('/upload/')) {
+    return url.replace('/upload/', '/upload/c_fill,w_240,h_160,q_auto,f_auto/');
+  }
+  return url;
+}
+
+/**
+ * Phase 8A map view: a bounded, public, PII-free projection of existing issues.
+ * REJECTED never returned. Optional bbox via $geoWithin Polygon (SW→SE→NE→NW→SW).
+ */
+export async function getIssuesMap({ west, south, east, north, category, status, minTier = 0, limit = 200 }) {
+  const hasBbox = [west, south, east, north].some((v) => v !== undefined);
+  if (hasBbox) {
+    if ([west, south, east, north].some((v) => v === undefined)) {
+      throw new ApiError('Provide all four bbox edges or none.', 400, 'BBOX_INVALID');
+    }
+    if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) {
+      throw new ApiError('Invalid bbox ranges.', 400, 'BBOX_INVALID');
+    }
+    if (east - west > 5 || north - south > 5) {
+      throw new ApiError('Bounding box too large — zoom in.', 400, 'BBOX_TOO_LARGE');
+    }
+  }
+
+  const statuses = status
+    ? status.split(',').map((s) => s.trim()).filter((s) => MAP_OPEN_STATUSES.includes(s))
+    : ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'];
+  const filter = { status: { $in: statuses.length ? statuses : ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'] } };
+  if (category) filter.category = category;
+  if (Number(minTier) > 0) filter.tier = { $gte: Number(minTier) };
+  if (hasBbox) {
+    filter.location = {
+      $geoWithin: {
+        $geometry: {
+          type: 'Polygon',
+          coordinates: [[[west, south], [east, south], [east, north], [west, north], [west, south]]],
+        },
+      },
+    };
+  }
+
+  const cappedLimit = Math.min(Number(limit) || 200, 300);
+  const docs = await Issue.find(filter)
+    .sort({ tier: -1, fundPaise: -1 })
+    .limit(cappedLimit + 1)
+    .select('_id title category status tier fundPaise supporterCount location.coordinates location.city photos')
+    .lean();
+
+  const truncated = docs.length > cappedLimit;
+  const items = docs.slice(0, cappedLimit).map((d) => ({
+    _id: d._id,
+    title: d.title,
+    category: d.category,
+    status: d.status,
+    tier: d.tier,
+    fundPaise: d.fundPaise,
+    supporterCount: d.supporterCount,
+    coordinates: d.location?.coordinates,
+    city: d.location?.city ?? '',
+    photo: d.photos?.[0] ? cloudinaryThumb(d.photos[0]) : null,
+  }));
+  return { items, count: items.length, truncated };
+}
+
 /**
  * Issue detail with timeline and viewer context. REJECTED issues are only
  * visible to their reporter and admins.
@@ -379,6 +474,7 @@ export async function getIssueDetail(issueId, viewer) {
     IssueUpdate.find({ issueId })
       .sort({ createdAt: 1 })
       .populate('actorId', 'name')
+      .populate('authorityId', 'nameEn')
       .lean(),
     viewer
       ? IssueSupport.findOne({ issueId, userId: viewer.userId }).lean()
@@ -423,6 +519,8 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
   const windowDays = await getSetting('autoCloseDays');
   const session = await mongoose.startSession();
   let result;
+  let fromStatus;
+  let timelineRowId;
   try {
     await session.withTransaction(async () => {
       const issue = await Issue.findById(issueId).session(session);
@@ -466,7 +564,7 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
         throw new ApiError('Issue status changed concurrently. Please refresh.', 409, 'INVALID_TRANSITION');
       }
 
-      await IssueUpdate.create(
+      const [timelineRow] = await IssueUpdate.create(
         [
           {
             issueId,
@@ -479,6 +577,8 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
         ],
         { session },
       );
+      fromStatus = issue.status;
+      timelineRowId = timelineRow._id;
 
       result = updated;
     });
@@ -493,7 +593,41 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
     });
   }
 
+  // Phase 8A: notify payers AFTER commit — failure-isolated, never blocks.
+  void notifyTransition(issueId, result, newStatus, fromStatus, actor, note, timelineRowId).catch((error) => {
+    console.warn('[issues] transition notification failed:', error.message);
+  });
+
   return result;
+}
+
+async function notifyTransition(issueId, issue, newStatus, fromStatus, actor, note, timelineRowId) {
+  if (!issue) return;
+  const supporterIds = await IssueSupport.find({ issueId }).distinct('userId');
+  const title = String(issue.title ?? '').slice(0, 120);
+  if (newStatus === 'REJECTED') {
+    const refunds = await WalletTxn.find({ issueId, type: 'REFUND' }).lean();
+    const byUser = new Map(refunds.map((r) => [String(r.userId), r.amountPaise]));
+    const payers = [...new Set([String(issue.reporterId), ...supporterIds.map(String)])];
+    for (const uid of payers) {
+      await notifyUsers({
+        userIds: [uid],
+        type: 'ISSUE_REJECTED',
+        payload: { issueId: String(issueId), title, refundPaise: byUser.get(uid) ?? 0, note: String(note ?? '').slice(0, 200) },
+        dedupeKey: `rejected:${issueId}:${uid}`,
+      });
+    }
+    return;
+  }
+  const audience = [...new Set([String(issue.reporterId), ...supporterIds.map(String)])].filter(
+    (id) => id !== String(actor.userId),
+  );
+  await notifyUsers({
+    userIds: audience,
+    type: 'ISSUE_STATUS_CHANGED',
+    payload: { issueId: String(issueId), title, fromStatus, toStatus: newStatus, actorRole: actor.role },
+    dedupeKey: `status:${timelineRowId}`,
+  });
 }
 
 function validateTransition(issue, newStatus, actor, windowDays) {
@@ -646,13 +780,15 @@ export async function listMySupported(userId, { page = 1, limit = 20 } = {}) {
  * all from settings (demoMode-aware).
  */
 export async function getIssueMeta() {
-  const [reportFeePaise, supportFeePaise, thresholds] = await Promise.all([
+  const [reportFeePaise, supportFeePaise, thresholds, disabled] = await Promise.all([
     getSetting('reportFeePaise'),
     getSetting('supportFeePaise'),
     getEffectiveTierThresholds(),
+    getSetting('disabledIssueCategories'),
   ]);
+  const disabledSet = new Set(disabled ?? []);
   return {
-    categories: [...ISSUE_CATEGORIES],
+    categories: ISSUE_CATEGORIES.filter((c) => !disabledSet.has(c)),
     reportFeePaise,
     supportFeePaise,
     thresholds,

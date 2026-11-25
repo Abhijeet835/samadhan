@@ -3,7 +3,7 @@ import { sendSuccess } from '../../utils/apiResponse.js';
 
 export async function meta(_req, res, next) {
   try {
-    return sendSuccess(res, helperService.getHelperMeta());
+    return sendSuccess(res, await helperService.getHelperMeta());
   } catch (error) {
     return next(error);
   }

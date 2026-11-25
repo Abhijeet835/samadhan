@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { forwardGeocode, parseAddressParts, reverseGeocode } from '@/features/global/geocode';
 import { uploadPhoto } from '@/features/global/uploadPhoto';
 import { LOCAL_CATEGORIES } from '@/features/local/constants';
+
+const LocationPicker = lazy(() => import('@/features/maps/LocationPicker'));
 
 const inputClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-teal-500';
 const labelClass = 'mb-1 block text-sm font-medium text-slate-700';
@@ -183,6 +185,19 @@ export default function HelperRegisterPage() {
             </div>
 
             <div className="rounded-lg border border-teal-100 bg-teal-50/40 p-3">
+              <Suspense fallback={<div className="h-[300px] animate-pulse rounded-xl bg-teal-100/60" />}>
+                <LocationPicker
+                  value={{ lat: coords?.lat, lng: coords?.lng }}
+                  radiusKm={Number(form.radiusKm)}
+                  onChange={(p) => {
+                    if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) setCoords({ lat: p.lat, lng: p.lng });
+                    const patch = {};
+                    for (const f of ['address', 'city', 'state', 'pincode']) if (p[f] !== undefined) patch[f] = p[f];
+                    if (Object.keys(patch).length) set(patch);
+                  }}
+                />
+              </Suspense>
+              <p className="mt-1 text-[11px] text-slate-400">{t('maps.helperAreaPrivacy')}</p>
               <Button type="button" variant="outline" size="sm" onClick={useMyLocation} disabled={locating} className="gap-2 border-teal-200 text-teal-800">
                 {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crosshair className="h-4 w-4" />}
                 {t('report.useMyLocation')}

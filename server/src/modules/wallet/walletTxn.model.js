@@ -47,6 +47,7 @@ const walletTxnSchema = new mongoose.Schema(
 );
 
 walletTxnSchema.index({ userId: 1, createdAt: -1 });
+walletTxnSchema.index({ type: 1, createdAt: -1 });
 
 const WalletTxn = mongoose.model('WalletTxn', walletTxnSchema);
 

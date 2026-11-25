@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -14,6 +14,8 @@ import { uploadPhoto } from '@/features/global/uploadPhoto';
 import { forwardGeocode, parseAddressParts, reverseGeocode } from '@/features/global/geocode';
 import DuplicateDialog from '@/features/global/DuplicateDialog';
 import WhyRupee from '@/features/global/WhyRupee';
+
+const LocationPicker = lazy(() => import('@/features/maps/LocationPicker'));
 
 const STEPS = ['details', 'location', 'photos', 'confirm'];
 
@@ -286,6 +288,18 @@ export default function ReportPage() {
 
             {step === 1 && (
               <div className="space-y-4">
+                <Suspense fallback={<div className="h-[300px] animate-pulse rounded-xl bg-slate-100" />}>
+                  <LocationPicker
+                    value={{ lat: coords?.lat, lng: coords?.lng }}
+                    onChange={(p) => {
+                      if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) setCoords({ lng: p.lng, lat: p.lat });
+                      const patch = {};
+                      for (const f of ['address', 'city', 'state', 'pincode']) if (p[f] !== undefined) patch[f] = p[f];
+                      if (Object.keys(patch).length) set(patch);
+                      setGeocodeFailed(false);
+                    }}
+                  />
+                </Suspense>
                 <Button type="button" variant="outline" onClick={useMyLocation} disabled={locating} className="gap-2">
                   {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crosshair className="h-4 w-4" />}
                   {locating ? t('report.locating') : t('report.useMyLocation')}

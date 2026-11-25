@@ -1,9 +1,11 @@
 import Issue from '../issues/issue.model.js';
+import IssueSupport from '../issues/issueSupport.model.js';
 import AuditLog from './auditLog.model.js';
 import { getEffectiveTierThresholds } from '../wallet/wallet.service.js';
 import { matchAuthority } from '../authorities/authority.service.js';
 import { ensureDispatchRow, runDispatchRow } from '../dispatch/dispatch.service.js';
 import { generateBundle } from '../social/social.service.js';
+import { notifyUsers } from '../notifications/notification.service.js';
 
 /**
  * Race-safe tier claims. Called AFTER a payment transaction commits — never
@@ -65,7 +67,7 @@ export async function checkTiers(issueId) {
       for (const tier of claimedTiers) {
         if (tier === 1) {
           rows.push(await ensureDispatchRow({ issueId, tier, channel: 'N8N_WEBHOOK', authorityId: issue.authorityId ?? null }));
-          // Phase 6: social posts + trending   // Phase 8: notify reporter and supporters
+          // Phase 6: social posts + trending
         } else {
           rows.push(await ensureDispatchRow({ issueId, tier, channel: 'EMAIL', authorityId: issue.authorityId ?? null }));
           rows.push(await ensureDispatchRow({ issueId, tier, channel: 'N8N_WEBHOOK', authorityId: issue.authorityId ?? null }));
@@ -83,9 +85,24 @@ export async function checkTiers(issueId) {
       try {
         const bundle = await generateBundle({ issueId, tier });
         await bundle.done;
-        // Phase 8: notify reporter and supporters
       } catch (error) {
         console.error('[tiers] social bundle failed:', error.message);
+      }
+    }
+    // NOTIFY step (Phase 8A): reporter + distinct supporters, exactly once per
+    // tier thanks to the per-user dedupeKey. Failure-isolated.
+    for (const tier of claimedTiers) {
+      try {
+        const issue = await Issue.findById(issueId).select('reporterId title').lean();
+        const supporterIds = await IssueSupport.find({ issueId }).distinct('userId');
+        await notifyUsers({
+          userIds: [issue?.reporterId, ...supporterIds],
+          type: tier === 1 ? 'TIER_1_REACHED' : 'TIER_2_REACHED',
+          payload: { issueId: String(issueId), title: String(issue?.title ?? '').slice(0, 120), tier },
+          dedupeKey: `tier:${issueId}:${tier}`,
+        });
+      } catch (error) {
+        console.error('[tiers] notification failed:', error.message);
       }
     }
     for (const row of rows) {

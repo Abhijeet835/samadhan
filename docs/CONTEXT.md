@@ -91,6 +91,7 @@ samadhan/
 | Report a Global issue | −₹5 (`500` paise) | One transaction: check balance → debit → `REPORT_FEE` txn → create issue (`fundPaise: 500`, `supporterCount: 1`) → insert reporter support |
 | +1 support an issue | −₹1 (`100` paise) | One transaction: verify user has not supported → check balance → debit → `SUPPORT_FEE` txn → insert support → increment `fundPaise` and `supporterCount` |
 | Admin rejects spam | Full refund | Refund every `REPORT_FEE` / `SUPPORT_FEE`, insert `REFUND` txns, set `REJECTED`, zero the fund, take down social posts |
+| Admin platform credit (Phase 8B) | +≤₹500 (`platformCreditMaxPaise`) | One transaction: open-status check → `$inc fundPaise + platformCreditPaise` → `PLATFORM_CREDIT` timeline row (unique idempotencyKey) → audit. NO wallet txn, NOT refunded on rejection. After commit `checkTiers`. Invariant: `fundPaise = Σ support amounts + platformCreditPaise` |
 
 `walletTxns.idempotencyKey` is unique. Repeated requests with the same key must never double-charge. All amounts are signed integers in paise.
 
@@ -159,6 +160,7 @@ Before creating an issue (unless `force === true`), run `$geoNear` on same-categ
 - Re-verification: a VERIFIED helper changing phone, categories, serviceLocation or displayName resets to PENDING; other fields never reset it.
 - Three non-dismissed flags from distinct users automatically hide the helper for admin review; admin unhide dismisses existing flags.
 - Free text (displayName, bio, priceHint, review comments) refuses phone-like digit runs and URLs (`CONTACT_IN_TEXT`).
+- Public helper location privacy (Phase 8A): search, public profile and connected-list responses round `serviceLocation.coordinates` to 3 decimals (≈110 m) and omit the street `address` (city/state/pincode kept). Owner dashboard/PATCH and admin responses keep exact data. Distance is computed from exact coordinates.
 
 ---
 
@@ -168,19 +170,19 @@ Before creating an issue (unless `force === true`), run `$geoNear` on same-categ
 | --- | --- | --- |
 | `users` | Account, roles, language, home location | unique `email` |
 | `wallets` | Balance in integer paise | unique `userId` |
-| `walletTxns` | Immutable ledger | unique `idempotencyKey`, `(userId, createdAt)` |
-| `issues` | Public civic issues | `2dsphere(location)`, `(category, status, createdAt)`, `fundPaise: -1` |
+| `walletTxns` | Immutable ledger | unique `idempotencyKey`, `(userId, createdAt)`, `(type, createdAt)` |
+| `issues` | Public civic issues (+ `platformCreditPaise`) | `2dsphere(location)`, `(category, status, createdAt)`, `fundPaise: -1` |
 | `issueSupports` | One support per user per issue | unique `(issueId, userId)` |
-| `issueUpdates` | Lifecycle timeline | `(issueId, createdAt)` |
-| `issueFlags` | Community flags | unique `(issueId, userId)` |
+| `issueUpdates` | Timeline (kind STATUS/AUTHORITY_ASSIGNED/AUTHORITY_REPLY/PLATFORM_CREDIT) | `(issueId, createdAt)`, unique-sparse `idempotencyKey` |
+| `issueFlags` | Community flags (never auto-hide issues) | unique `(issueId, userId)`, `(issueId, dismissed)` |
 | `authorities` | Department directory | `(cityKeys, categories)` |
 | `socialPosts` | Generated campaign bundles | `(issueId, tier)` |
 | `dispatchLog` | Email / dispatch previews | `(issueId, sentAt)` |
 | `helpers` | Local service providers | `2dsphere(serviceLocation)`, `(verificationStatus, isHidden, categories)` |
 | `connections` | Connect-before-contact records | `(seekerId, helperId)`, `(seekerId, createdAt)` |
 | `reviews` | Verified ratings | unique `(helperId, seekerId)` |
-| `notifications` | In-app notification centre | `(userId, readAt, createdAt)` |
-| `settings` / `auditLogs` | Config + immutable admin audit | unique `settings.key`, `auditLogs.createdAt: -1` |
+| `notifications` | In-app notification centre (12 types, PII-free payload) | `(userId, readAt, createdAt)`, unique `(userId, dedupeKey)` partial, TTL 90 d |
+| `settings` / `auditLogs` | Config + immutable admin audit (entity/entityId/before/after) | unique `settings.key`, `auditLogs.createdAt:-1`, `(action,createdAt)`, `(entity,entityId,createdAt)` |
 
 All timestamps are stored in UTC.
 
@@ -193,6 +195,7 @@ All timestamps are stored in UTC.
 - Failure: `{ "success": false, "error": { "code": "MACHINE_CODE", "message": "Human readable message" } }`. Error objects may carry extra detail fields alongside `code`/`message` (e.g. `error.existingIssue` on `DUPLICATE_FOUND`).
 - Health: `GET /api/health` is public and must remain available even when MongoDB is not configured.
 - Protected routes: JWT auth + role + ownership. Admin routes are strictly `ADMIN`.
+- Admin surface (Phase 8B): `/api/admin/{issues,users,settings,categories,dashboard,audit}` plus the earlier `authorities`, `dispatch`, `social`, `helpers`, `issues/:id/recheck-tiers`. Every admin mutation writes an immutable, PII-free audit row; audit rows are never updated or deleted.
 
 `docs/API.md` is the live endpoint reference.
 

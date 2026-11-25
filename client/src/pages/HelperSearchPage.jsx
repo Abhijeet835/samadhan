@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Inbox, MapPin } from 'lucide-react';
@@ -9,10 +9,13 @@ import { cn } from '@/lib/utils';
 import HelperCard from '@/features/local/HelperCard';
 import { CATEGORY_ICONS, LOCAL_CATEGORIES, SEARCH_RADII, loadLocalLocation } from '@/features/local/constants';
 
+const HelperMap = lazy(() => import('@/features/maps/HelperMap'));
+
 export default function HelperSearchPage() {
   const { t } = useTranslation();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const location = loadLocalLocation();
+  const view = params.get('view') === 'map' ? 'map' : 'list';
   const [category, setCategory] = useState(params.get('category') ?? '');
   const [radiusKm, setRadiusKm] = useState(5);
   const [sort, setSort] = useState('nearest');
@@ -110,8 +113,20 @@ export default function HelperSearchPage() {
         </div>
       </div>
 
+      <div className="mt-3 flex gap-1 rounded-xl bg-slate-100 p-1">
+        {['list', 'map'].map((v) => (
+          <button key={v} type="button" onClick={() => setParams(v === 'map' ? { view: 'map' } : {})} className={cn('flex-1 rounded-lg px-3 py-1.5 text-sm font-medium', view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>
+            {t(`maps.${v}View`)}
+          </button>
+        ))}
+      </div>
+
       <div className="mt-6">
-        {loading ? (
+        {view === 'map' ? (
+          <Suspense fallback={<div className="h-[520px] animate-pulse rounded-xl bg-teal-100/60" />}>
+            <HelperMap location={location} category={category} radiusKm={radiusKm} sort={sort} />
+          </Suspense>
+        ) : loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label={t('common.loading')}>
             {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-teal-100/60" />)}
           </div>

@@ -1,12 +1,16 @@
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Flame, Inbox, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import IssueCard from '@/features/global/IssueCard';
 import IssueFilters from '@/features/global/IssueFilters';
 import { useIssuesFeed } from '@/features/global/useIssuesFeed';
 import { useIssueMeta } from '@/features/global/useIssueMeta';
+
+const GlobalMap = lazy(() => import('@/features/maps/GlobalMap'));
 
 function FeedSkeleton() {
   return (
@@ -22,6 +26,7 @@ export default function IssuesPage() {
   const { t } = useTranslation();
   const { issues, pagination, filters, setFilters, loading } = useIssuesFeed();
   const meta = useIssueMeta();
+  const [view, setView] = useState('list');
 
   return (
     <div className="min-h-screen bg-slate-50 py-8">
@@ -47,6 +52,20 @@ export default function IssuesPage() {
           </div>
         </div>
 
+        <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+          {['list', 'map'].map((v) => (
+            <button key={v} type="button" onClick={() => setView(v)} className={cn('flex-1 rounded-lg px-3 py-1.5 text-sm font-medium', view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>
+              {t(`maps.${v}View`)}
+            </button>
+          ))}
+        </div>
+
+        {view === 'map' ? (
+          <Suspense fallback={<div className="h-[520px] animate-pulse rounded-xl bg-slate-200" />}>
+            <GlobalMap category={filters.category} status={filters.status} minTier={0} />
+          </Suspense>
+        ) : (
+        <>
         <div className="mb-6">
           <IssueFilters filters={filters} onChange={setFilters} />
         </div>
@@ -93,6 +112,8 @@ export default function IssuesPage() {
               </div>
             )}
           </>
+        )}
+        </>
         )}
       </div>
     </div>

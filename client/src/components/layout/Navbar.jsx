@@ -5,6 +5,7 @@ import { Wallet } from 'lucide-react';
 import LanguageToggle from '@/components/LanguageToggle';
 import Logo from '@/components/Logo';
 import ModeSwitch from '@/components/ModeSwitch';
+import NotificationBell from '@/features/notifications/NotificationBell';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 
@@ -39,6 +40,12 @@ export default function Navbar() {
             {t('nav.localServices')}
           </Link>
           <Link
+            to="/map"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {t('nav.map')}
+          </Link>
+          <Link
             to="/report"
             className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
@@ -53,26 +60,12 @@ export default function Navbar() {
             </Link>
           )}
           {user?.role === 'ADMIN' && (
-            <>
-              <Link
-                to="/admin/dispatch"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-50 hover:text-violet-700"
-              >
-                {t('nav.adminDispatch')}
-              </Link>
-              <Link
-                to="/admin/social"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-50 hover:text-violet-700"
-              >
-                {t('nav.adminSocial')}
-              </Link>
-              <Link
-                to="/admin/helpers"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-50 hover:text-violet-700"
-              >
-                {t('nav.adminHelpers')}
-              </Link>
-            </>
+            <Link
+              to="/admin"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-50 hover:text-violet-700"
+            >
+              {t('nav.admin')}
+            </Link>
           )}
           <a
             href="#how-it-works"
@@ -97,6 +90,7 @@ export default function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           <ModeSwitch />
           <LanguageToggle />
+          {isAuthenticated && <NotificationBell />}
           
           {isAuthenticated ? (
             <>

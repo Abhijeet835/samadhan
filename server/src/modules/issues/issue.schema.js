@@ -40,6 +40,17 @@ export const issueIdParamSchema = z.object({
   issueId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid issue id'),
 });
 
+export const mapQuerySchema = z.object({
+  west: z.coerce.number().optional(),
+  south: z.coerce.number().optional(),
+  east: z.coerce.number().optional(),
+  north: z.coerce.number().optional(),
+  category: z.enum(ISSUE_CATEGORIES).optional(),
+  status: z.string().max(120).optional(),
+  minTier: z.coerce.number().int().min(0).max(2).optional().default(0),
+  limit: z.coerce.number().int().min(1).max(300).optional().default(200),
+});
+
 export const supportIssueSchema = z.object({
   idempotencyKey: z.string().min(8).max(100).trim(),
 });

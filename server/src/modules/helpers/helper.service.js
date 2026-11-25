@@ -8,6 +8,8 @@ import Review from './review.model.js';
 import HelperFlag from './helperFlag.model.js';
 import User from '../users/user.model.js';
 import AuditLog from '../tiers/auditLog.model.js';
+import { notifyUsers } from '../notifications/notification.service.js';
+import { getSetting } from '../wallet/wallet.service.js';
 import { ApiError } from '../../utils/apiResponse.js';
 import {
   AUTO_HIDE_FLAG_THRESHOLD,
@@ -18,38 +20,9 @@ import {
   SEARCH_RADII_KM,
 } from './helper.constants.js';
 
-// Override #7: refuse phone-like digit runs and URLs in free text.
-const CONTACT_PATTERNS = [
-  /(?:\+?91[\s-]?)?[6-9](?:[\s-]?\d){9}/,
-  /\d(?:[\s-]?\d){9,}/,
-  /https?:\/\//i,
-  /\bwww\./i,
-];
-
-// 7.1: normalise before testing — NFKC, Devanagari/Arabic-Indic digits → ASCII,
-// zero-width characters stripped, so obfuscated numbers cannot slip through.
-function normaliseForContactCheck(value) {
-  return String(value ?? '')
-    .normalize('NFKC')
-    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
-    .replace(/[\u0966-\u096F]/g, (d) => String(d.charCodeAt(0) - 0x0966))
-    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
-}
-
-export function assertNoContactInfo(fields) {
-  for (const value of Object.values(fields)) {
-    if (typeof value !== 'string') continue;
-    const normalised = normaliseForContactCheck(value);
-    if (CONTACT_PATTERNS.some((re) => re.test(normalised))) {
-      throw new ApiError(
-        'Phone numbers and links are not allowed in profile text — use the dedicated phone field.',
-        400,
-        'CONTACT_IN_TEXT',
-      );
-    }
-  }
-}
+// Override #7 / Phase 8B B6: contact guard lives in a shared util now.
+import { assertNoContactInfo } from '../../utils/contactGuard.util.js';
+export { assertNoContactInfo };
 
 function toDisplayName(name) {
   const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -71,8 +44,22 @@ function pickOwnerFields(data) {
   return patch;
 }
 
-export function getHelperMeta() {
-  return { categories: [...LOCAL_CATEGORIES], radii: [...SEARCH_RADII_KM], dailyConnectLimit: DAILY_CONNECT_LIMIT };
+export async function getHelperMeta() {
+  const disabled = await getSetting('disabledHelperCategories');
+  const disabledSet = new Set(disabled ?? []);
+  return {
+    categories: LOCAL_CATEGORIES.filter((c) => !disabledSet.has(c)),
+    radii: [...SEARCH_RADII_KM],
+    dailyConnectLimit: DAILY_CONNECT_LIMIT,
+  };
+}
+
+async function assertCategoriesEnabled(categories) {
+  if (!categories?.length) return;
+  const disabled = await getSetting('disabledHelperCategories');
+  if (categories.some((c) => (disabled ?? []).includes(c))) {
+    throw new ApiError('One of the chosen categories is currently disabled.', 400, 'CATEGORY_DISABLED');
+  }
 }
 
 export async function registerHelper(userId, data) {
@@ -84,6 +71,7 @@ export async function registerHelper(userId, data) {
     throw new ApiError('You already have a helper profile.', 409, 'HELPER_PROFILE_EXISTS');
   }
   assertNoContactInfo({ displayName: data.displayName, bio: data.bio, priceHint: data.priceHint });
+  await assertCategoriesEnabled(data.categories);
 
   const patch = pickOwnerFields(data);
   let helper;
@@ -127,6 +115,7 @@ export async function updateMyHelper(userId, data) {
   if (!helper) throw new ApiError('Helper profile not found.', 404, 'HELPER_PROFILE_NOT_FOUND');
 
   assertNoContactInfo({ displayName: data.displayName, bio: data.bio, priceHint: data.priceHint });
+  await assertCategoriesEnabled(data.categories);
   const patch = pickOwnerFields(data);
 
   const plain = helper.toObject();
@@ -145,6 +134,9 @@ export async function updateMyHelper(userId, data) {
   }
 
   const updated = await Helper.findByIdAndUpdate(helper._id, { $set: patch }, { returnDocument: 'after' });
+  if (patch.verificationStatus === 'PENDING' && helper.verificationStatus !== 'PENDING') {
+    void notifyUsers({ userIds: [userId], type: 'HELPER_REVERIFICATION_REQUIRED', payload: { helperId: String(helper._id) } }).catch(() => {});
+  }
   return updated.toObject();
 }
 
@@ -226,9 +218,17 @@ export async function searchHelpers({ category, lat, lng, radiusKm = 5, sort = '
 
   const total = result.total[0]?.n ?? 0;
   return {
-    items: result.items,
+    items: result.items.map((item) => ({ ...item, serviceLocation: publicServiceLocation(item.serviceLocation) })),
     pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   };
+}
+
+// Phase 8A privacy: public responses show an approximate area (≈110 m) and no
+// street address. Owner dashboard/PATCH and admin responses keep exact data.
+function publicServiceLocation(loc) {
+  if (!loc) return loc;
+  const { address, ...rest } = loc;
+  return { ...rest, coordinates: (loc.coordinates ?? []).map((n) => Number(Number(n).toFixed(3))) };
 }
 
 export async function getHelperById(helperId, viewerUserId, { page = 1, limit = 10 } = {}) {
@@ -244,6 +244,9 @@ export async function getHelperById(helperId, viewerUserId, { page = 1, limit = 
 
   // phone NEVER appears here — even for the owner (dashboard/PATCH only).
   const { phone, userId, rejectionReason, flagCount, ...publicProfile } = helper;
+  if (!isOwner && !isAdmin) {
+    publicProfile.serviceLocation = publicServiceLocation(helper.serviceLocation);
+  }
 
   const [breakdownAgg, reviews, totalReviews] = await Promise.all([
     Review.aggregate([
@@ -409,6 +412,9 @@ export async function upsertReview({ seekerId, helperId, rating, comment }) {
   const ratingCount = agg?.count ?? 0;
   await Helper.updateOne({ _id: helperId }, { $set: { ratingAvg, ratingCount } });
 
+  if (!updated) {
+    void notifyUsers({ userIds: [helper.userId], type: 'HELPER_NEW_REVIEW', payload: { helperId: String(helperId), rating } }).catch(() => {});
+  }
   return { review, ratingAvg, ratingCount, updated };
 }
 
@@ -440,6 +446,7 @@ export async function flagHelper({ userId, helperId, reason }) {
   );
   if (hidden) {
     await AuditLog.create({ action: 'HELPER_AUTO_HIDDEN', meta: { helperId: String(helperId), flagCount } });
+    void notifyUsers({ userIds: [helper.userId], type: 'HELPER_AUTO_HIDDEN', payload: { helperId: String(helperId) } }).catch(() => {});
   }
   return { flagCount, isHidden: !!hidden };
 }
@@ -465,7 +472,7 @@ export async function getMyConnectedHelpers(seekerId, { page = 1, limit = 10 } =
     .map((id) => {
       const helper = helpers.find((h) => String(h._id) === id);
       return helper
-        ? { helper, lastConnectedAt: latestByHelper.get(id), hasReviewed: reviewed.has(id) }
+        ? { helper: { ...helper, serviceLocation: publicServiceLocation(helper.serviceLocation) }, lastConnectedAt: latestByHelper.get(id), hasReviewed: reviewed.has(id) }
         : null;
     })
     .filter(Boolean);
@@ -528,5 +535,16 @@ export async function adminPatchHelper(helperId, patch, actor) {
     actorRole: 'ADMIN',
     meta: { helperId: String(helperId), before, after },
   });
+  let type = null;
+  if (patch.verificationStatus === 'VERIFIED') type = 'HELPER_VERIFIED';
+  else if (patch.verificationStatus === 'REJECTED') type = 'HELPER_REJECTED';
+  else if (patch.isHidden === false) type = 'HELPER_UNHIDDEN';
+  if (type) {
+    void notifyUsers({
+      userIds: [helper.userId],
+      type,
+      payload: { helperId: String(helperId), ...(type === 'HELPER_REJECTED' ? { rejectionReason: updated.rejectionReason } : {}) },
+    }).catch(() => {});
+  }
   return updated.toObject();
 }

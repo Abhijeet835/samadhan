@@ -1,4 +1,5 @@
 import { Toaster } from 'react-hot-toast';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import SiteLayout from '@/components/layout/SiteLayout';
@@ -24,6 +25,17 @@ import HelperDashboardPage from '@/pages/HelperDashboardPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/context/AuthContext';
 
+const GlobalMapPage = lazy(() => import('@/pages/GlobalMapPage'));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
+const AdminLayout = lazy(() => import('@/features/admin/AdminLayout'));
+const AdminDashboardPage = lazy(() => import('@/features/admin/AdminDashboardPage'));
+const AdminIssuesPage = lazy(() => import('@/features/admin/AdminIssuesPage'));
+const AdminIssueDetailPage = lazy(() => import('@/features/admin/AdminIssueDetailPage'));
+const AdminUsersPage = lazy(() => import('@/features/admin/AdminUsersPage'));
+const AdminSettingsPage = lazy(() => import('@/features/admin/AdminSettingsPage'));
+const AdminAuditPage = lazy(() => import('@/features/admin/AdminAuditPage'));
+const MapFallback = () => <div className="mx-auto max-w-6xl px-4 py-8"><div className="h-[520px] animate-pulse rounded-xl bg-slate-200" /></div>;
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -48,6 +60,8 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/issues" element={<IssuesPage />} />
             <Route path="/trending" element={<TrendingPage />} />
+            <Route path="/map" element={<Suspense fallback={<MapFallback />}><GlobalMapPage /></Suspense>} />
+            <Route path="/notifications" element={<ProtectedRoute><Suspense fallback={<MapFallback />}><NotificationsPage /></Suspense></ProtectedRoute>} />
             <Route element={<LocalLayout />}>
               <Route path="/local" element={<LocalHomePage />} />
               <Route path="/local/search" element={<HelperSearchPage />} />
@@ -103,29 +117,25 @@ export default function App() {
               }
             />
             <Route
-              path="/admin/dispatch"
+              path="/admin"
               element={
                 <ProtectedRoute roles={['ADMIN']}>
-                  <AdminDispatchPage />
+                  <Suspense fallback={<MapFallback />}>
+                    <AdminLayout />
+                  </Suspense>
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="/admin/social"
-              element={
-                <ProtectedRoute roles={['ADMIN']}>
-                  <AdminSocialPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/helpers"
-              element={
-                <ProtectedRoute roles={['ADMIN']}>
-                  <AdminHelpersPage />
-                </ProtectedRoute>
-              }
-            />
+            >
+              <Route index element={<Suspense fallback={<MapFallback />}><AdminDashboardPage /></Suspense>} />
+              <Route path="issues" element={<Suspense fallback={<MapFallback />}><AdminIssuesPage /></Suspense>} />
+              <Route path="issues/:issueId" element={<Suspense fallback={<MapFallback />}><AdminIssueDetailPage /></Suspense>} />
+              <Route path="helpers" element={<AdminHelpersPage />} />
+              <Route path="users" element={<Suspense fallback={<MapFallback />}><AdminUsersPage /></Suspense>} />
+              <Route path="dispatch" element={<AdminDispatchPage />} />
+              <Route path="social" element={<AdminSocialPage />} />
+              <Route path="settings" element={<Suspense fallback={<MapFallback />}><AdminSettingsPage /></Suspense>} />
+              <Route path="audit" element={<Suspense fallback={<MapFallback />}><AdminAuditPage /></Suspense>} />
+            </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

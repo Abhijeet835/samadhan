@@ -1,0 +1,18 @@
+/* Tailwind preflight sets img max-width:100% which breaks Leaflet tiles. */
+.leaflet-container img {
+  max-width: none !important;
+}
+.leaflet-container {
+  font: inherit;
+  background: #e2e8f0;
+}
+.samadhan-pin {
+  background: transparent;
+  border: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-fade-anim .leaflet-tile,
+  .leaflet-zoom-anim .leaflet-zoom-animated {
+    transition: none !important;
+  }
+}

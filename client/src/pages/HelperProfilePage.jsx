@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { CATEGORY_ICONS } from '@/features/local/constants';
 import { formatTxnDate } from '@/features/wallet/money';
+
+const HelperAreaMap = lazy(() => import('@/features/maps/HelperAreaMap'));
 
 function Stars({ value, size = 'h-4 w-4' }) {
   return (
@@ -173,6 +175,12 @@ export default function HelperProfilePage() {
           </div>
 
           <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-slate-700">{helper.bio}</p>
+
+          <div className="mt-4">
+            <Suspense fallback={<div className="h-[220px] animate-pulse rounded-xl bg-slate-100" />}>
+              <HelperAreaMap helper={helper} />
+            </Suspense>
+          </div>
 
           <div className="mt-5 border-t border-teal-50 pt-4">
             {viewer.isOwner ? (

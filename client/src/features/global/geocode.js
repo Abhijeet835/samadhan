@@ -1,15 +1,15 @@
 const NOMINATIM = 'https://nominatim.openstreetmap.org';
 
-export async function reverseGeocode(lat, lng) {
+export async function reverseGeocode(lat, lng, lang = 'en') {
   const res = await fetch(
-    `${NOMINATIM}/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+    `${NOMINATIM}/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=${lang}`,
   );
   if (!res.ok) throw new Error('reverse geocode failed');
   return res.json();
 }
 
-export async function forwardGeocode(query) {
-  const res = await fetch(`${NOMINATIM}/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`);
+export async function forwardGeocode(query, lang = 'en') {
+  const res = await fetch(`${NOMINATIM}/search?format=jsonv2&limit=1&accept-language=${lang}&q=${encodeURIComponent(query)}`);
   if (!res.ok) throw new Error('geocode failed');
   const results = await res.json();
   return results.length ? results[0] : null;

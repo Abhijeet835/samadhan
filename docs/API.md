@@ -958,6 +958,61 @@ Seed: `npm run seed:helpers` — 30 sample VERIFIED helpers across all 9 categor
 
 ---
 
+## Maps & notifications (Phase 8A)
+
+### `GET /api/issues/map`
+
+Public, rate-limited 60/min/IP. A bounded, PII-free map projection. Query: `west,south,east,north` (all-or-none floats; `west<east`, `south<north`, span ≤5° else `400 BBOX_INVALID` / `400 BBOX_TOO_LARGE`), `category`, `status` (comma list of ACTIVE|ACKNOWLEDGED|IN_PROGRESS|RESOLVED|CLOSED; default the three open statuses), `minTier` (0|1|2), `limit` (≤300, default 200). REJECTED never returned. `$geoWithin` Polygon when bbox given; sort tier desc, fundPaise desc; fetch limit+1 → `truncated`. Items: `_id,title,category,status,tier,fundPaise,supporterCount,coordinates,city,photo` (240px Cloudinary thumb). NO reporter fields. Response `{ items, count, truncated }`.
+
+### Notifications (all protected; a user only touches own rows)
+
+Model: `userId, type, payload (PII-free), dedupeKey?, readAt, createdAt`. Indexes `(userId,readAt,createdAt:-1)`, unique `(userId,dedupeKey)` partial on string, TTL 90 days. Types: TIER_1_REACHED, TIER_2_REACHED, ISSUE_STATUS_CHANGED, ISSUE_REJECTED, ISSUE_AUTHORITY_REPLY, ISSUE_PLATFORM_CREDIT, HELPER_VERIFIED, HELPER_REJECTED, HELPER_AUTO_HIDDEN, HELPER_UNHIDDEN, HELPER_REVERIFICATION_REQUIRED, HELPER_NEW_REVIEW.
+
+`notifyUsers` is failure-isolated, always after commit. Hooks: tier claim winner → reporter + supporters (dedupe `tier:<issueId>:<tier>`); transition → reporter + supporters minus actor (dedupe `status:<rowId>`), REJECTED → each payer with their own `refundPaise`; helper verify/reject/unhide/auto-hide/reverify/new-review.
+
+- `GET /api/notifications` (rateLimit 120/min) — `page, limit≤50, unreadOnly` → `{ items, unreadCount, pagination }`
+- `GET /api/notifications/unread-count` → `{ unreadCount }`
+- `PATCH /api/notifications/:id/read` — idempotent; foreign/unknown → `404 NOTIFICATION_NOT_FOUND`
+- `POST /api/notifications/read-all` → `{ modifiedCount }` (own rows only)
+
+### Helper public-location privacy (8A)
+
+`searchHelpers`, public `getHelperById`, `getMyConnectedHelpers` round `serviceLocation.coordinates` to 3 decimals (≈110 m) and OMIT `address` (city/state/pincode kept). Distance still computed from exact data. Owner dashboard/PATCH and admin responses keep exact coordinates + address.
+
+---
+
+## Admin panel (Phase 8B)
+
+All `/api/admin/*` routes require JWT + ADMIN role (401 no token, 403 otherwise). Every mutation writes an immutable audit row (PII-free before/after). Existing `/api/admin/authorities`, `/dispatch`, `/social`, `/helpers`, `/issues/:id/recheck-tiers` are unchanged.
+
+### Issues moderation
+- `GET /api/admin/issues` — q, status (incl. REJECTED), tier, category, city, flagged, hasFailedActions, sort (newest|fund|supporters|tier), page/limit. Items include reporter {_id,name,email}, flagCount, failedDispatch/failedSocial counts, platformCreditPaise.
+- `GET /api/admin/issues/:issueId` — full issue, timeline (with kinds), contributors {count,totalPaise,top10}, dispatch rows (no bodies), social summary, flags, authority, `allowedTransitions` (from the state machine).
+- `POST /api/admin/issues/:issueId/transition` {status, note} — wraps `transitionIssue`; REJECTED requires note ≥10. Refunds/takedown/notifications come from existing code.
+- `PATCH /api/admin/issues/:issueId/authority` {authorityId|null} — assign/unassign an ACTIVE authority on non-terminal issues (inactive → 400). Adds AUTHORITY_ASSIGNED timeline row.
+- `POST /api/admin/issues/:issueId/authority-reply` {message 10–1000, authorityId?} — AUTHORITY_REPLY timeline row (contact guard), notifies reporter+supporters. Blocked on REJECTED. Labelled "recorded by Samadhan admin".
+- `POST /api/admin/issues/:issueId/credit` {amountPaise, reason 5–200, idempotencyKey} — platform credit to the fund. ONE transaction (open statuses only) + PLATFORM_CREDIT timeline row + audit. Idempotent replay 200; key reused elsewhere 409 IDEMPOTENCY_KEY_CONFLICT; amount > platformCreditMaxPaise or ≤0 → 400 INVALID_AMOUNT; terminal → 409 ISSUE_NOT_OPEN. After commit checkTiers → `tierUnlocked`. NOT a wallet txn, NOT refunded on rejection. Invariant: fundPaise = Σ supports + platformCreditPaise.
+- `POST /api/admin/issues/:issueId/flags/dismiss` — dismiss all flags (+audit).
+
+### Community flags (public)
+- `POST /api/issues/:issueId/flag` {reason: SPAM|DUPLICATE|INAPPROPRIATE|WRONG_LOCATION|OTHER, comment?} — protected, rate-limited, unique (issueId,userId) → 409 ALREADY_FLAGGED, own issue → 409 CANNOT_FLAG_OWN_ISSUE, non-terminal only. NEVER auto-hides issues.
+
+### Users
+- `GET /api/admin/users` (q on name/email/phone, role, isActive) → safe fields + hasHelperProfile + walletBalancePaise (never password/tokens).
+- `GET /api/admin/users/:userId` → profile + wallet + last 10 txns + counts (read-only).
+- `PATCH /api/admin/users/:userId` {isActive} — only enable/disable; self/ADMIN target → 403 FORBIDDEN_TARGET; disabling hides the helper profile in the same transaction; a disabled user's token is rejected 403 ACCOUNT_DISABLED on the next request. No role editing/password reset/deletion.
+
+### Settings & categories
+- `GET /api/admin/settings` → editable keys with value/type/bounds; demo thresholds read-only; socialPublishMode linked.
+- `PATCH /api/admin/settings` — whitelist + Zod bounds (reportFee/supportFee 100–10000, tier1 ≥100, tier2 > tier1, signupCredit 100–100000, duplicateRadius 10–1000, duplicateDays 1–180, autoCloseDays 1–60, platformCreditMax 100–500000, demoMode bool). Immediate effect; in-transaction audit.
+- `GET/PATCH /api/admin/categories` — disabledIssueCategories[] / disabledHelperCategories[]; cannot disable OTHER or all of a list. `/issues/meta` & `/helpers/meta` return enabled only; create/register/PATCH reject disabled → 400 CATEGORY_DISABLED. Existing data stays visible.
+
+### Dashboard & audit
+- `GET /api/admin/dashboard?days=7|30|90` — users/helpers/issues/funds/simulatedRevenue (gross − refunds)/wallet/local/attention + zero-filled UTC series (issuesPerDay, feesPerDay, connectionsPerDay). Integer paise.
+- `GET /api/admin/audit` (page, limit≤100, action, entity, entityId, actorId, from, to, q) → normalised rows (legacy before/after derived from meta). `GET /api/admin/audit/actions` → distinct actions. No update/delete endpoints.
+
+---
+
 ## Error codes
 
 |HTTP|Code|Meaning|
@@ -998,6 +1053,13 @@ Seed: `npm run seed:helpers` — 30 sample VERIFIED helpers across all 9 categor
 |409|`CANNOT_FLAG_SELF`|Cannot flag your own helper profile|
 |400|`CONTACT_IN_TEXT`|Phone-like digit run or URL in free text|
 |429|`RATE_LIMITED`|Per-IP request budget exhausted|
+|400|`BBOX_INVALID`|Missing/invalid bounding-box edges|
+|400|`BBOX_TOO_LARGE`|Bounding-box span exceeds 5°|
+|404|`NOTIFICATION_NOT_FOUND`|Notification missing or owned by another user|
+|400|`CATEGORY_DISABLED`|Chosen category is currently disabled|
+|403|`FORBIDDEN_TARGET`|Cannot modify self or another admin|
+|409|`CANNOT_FLAG_OWN_ISSUE`|Cannot flag your own issue|
+|409|`ISSUE_NOT_OPEN`|Action requires a non-terminal issue|
 |409|`INVALID_TRANSITION`|Status transition not allowed from the current status|
 |409|`REOPEN_WINDOW_EXPIRED`|Reopen attempted more than 7 days after resolution|
 |400|`IMAGE_REQUIRED`|Upload request contained no file|

@@ -13,8 +13,17 @@ const issueUpdateSchema = new mongoose.Schema(
     },
     toStatus: {
       type: String,
-      required: true,
+      default: null,
     },
+    // Phase 8B: non-status timeline events.
+    kind: {
+      type: String,
+      enum: ['STATUS', 'AUTHORITY_ASSIGNED', 'AUTHORITY_REPLY', 'PLATFORM_CREDIT'],
+      default: 'STATUS',
+    },
+    authorityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Authority', default: null },
+    amountPaise: { type: Number, default: null },
+    idempotencyKey: { type: String, default: null },
     actorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -38,6 +47,10 @@ const issueUpdateSchema = new mongoose.Schema(
 );
 
 issueUpdateSchema.index({ issueId: 1, createdAt: 1 });
+issueUpdateSchema.index(
+  { idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
+);
 
 const IssueUpdate = mongoose.model('IssueUpdate', issueUpdateSchema);
 

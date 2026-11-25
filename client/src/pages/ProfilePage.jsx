@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+
+const LocationPicker = lazy(() => import('@/features/maps/LocationPicker'));
 
 export default function ProfilePage() {
   const { t } = useTranslation();
@@ -23,6 +25,24 @@ export default function ProfilePage() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  const homeCoords = user?.homeLocation?.coordinates;
+  const [home, setHome] = useState({
+    lat: homeCoords?.[1], lng: homeCoords?.[0],
+    address: user?.homeLocation?.address ?? '', city: user?.homeLocation?.city ?? '',
+    state: user?.homeLocation?.state ?? '', pincode: user?.homeLocation?.pincode ?? '',
+  });
+
+  async function saveHome() {
+    if (!Number.isFinite(home.lat) || !Number.isFinite(home.lng)) {
+      toast.error(t('maps.pickLocationFirst'));
+      return;
+    }
+    const result = await updateProfile({
+      homeLocation: { coordinates: [home.lng, home.lat], address: home.address, city: home.city, state: home.state, pincode: home.pincode },
+    });
+    if (result?.success !== false) toast.success(t('maps.homeSaved'));
+  }
 
   function handleProfileChange(e) {
     setProfileData((prev) => ({
@@ -191,6 +211,21 @@ export default function ProfilePage() {
                   {loading ? t('common.loading') : t('profile.save')}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Home location (maps default centre) */}
+        {activeTab === 'profile' && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>{t('maps.homeLocation')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Suspense fallback={<div className="h-[300px] animate-pulse rounded-xl bg-slate-100" />}>
+                <LocationPicker value={home} onChange={(p) => setHome((prev) => ({ ...prev, ...p }))} />
+              </Suspense>
+              <Button type="button" className="mt-3" onClick={saveHome}>{t('maps.saveHome')}</Button>
             </CardContent>
           </Card>
         )}

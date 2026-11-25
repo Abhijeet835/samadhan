@@ -12,6 +12,22 @@ export async function getMeta(_req, res, next) {
   }
 }
 
+export async function map(req, res, next) {
+  try {
+    return sendSuccess(res, await issueService.getIssuesMap(req.validated.query));
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function flag(req, res, next) {
+  try {
+    return sendSuccess(res, await issueService.flagIssue({ userId: req.user.userId, issueId: req.params.issueId, reason: req.body.reason, comment: req.body.comment }));
+  } catch (error) {
+    return next(error);
+  }
+}
+
 /**
  * GET /api/issues — public feed
  */

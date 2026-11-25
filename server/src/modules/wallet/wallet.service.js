@@ -22,6 +22,9 @@ const DEFAULT_SETTINGS = Object.freeze({
   duplicateDays: 30,
   autoCloseDays: 7,
   socialPublishMode: 'AUTO',
+  platformCreditMaxPaise: 50000,
+  disabledIssueCategories: [],
+  disabledHelperCategories: [],
   demoMode: false,
 });
 

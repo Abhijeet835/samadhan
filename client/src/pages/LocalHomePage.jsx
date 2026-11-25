@@ -5,12 +5,14 @@ import toast from 'react-hot-toast';
 import { ArrowRight, Crosshair, Loader2, MapPin, Search, ShieldCheck, UserPlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
 import { forwardGeocode, parseAddressParts, reverseGeocode } from '@/features/global/geocode';
 import { CATEGORY_ICONS, LOCAL_CATEGORIES, loadLocalLocation, saveLocalLocation } from '@/features/local/constants';
 
 export default function LocalHomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [location, setLocation] = useState(loadLocalLocation());
   const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
@@ -82,6 +84,18 @@ export default function LocalHomePage() {
           {location ? t('local.locationSet', { label: location.label }) : t('local.setLocation')}
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          {user?.homeLocation?.coordinates && (
+            <Button type="button" variant="outline" className="gap-2 border-teal-200 text-teal-800" onClick={() => {
+              const [lng, lat] = user.homeLocation.coordinates;
+              const next = { lat, lng, label: user.homeLocation.city || user.homeLocation.address || t('maps.homeLocation') };
+              saveLocalLocation(next);
+              setLocation(next);
+              navigate('/local/search');
+            }}>
+              <MapPin className="h-4 w-4" />
+              {t('maps.useSavedHome')}
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={useMyLocation} disabled={locating} className="gap-2 border-teal-200 text-teal-800">
             {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crosshair className="h-4 w-4" />}
             {t('report.useMyLocation')}

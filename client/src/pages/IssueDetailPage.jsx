@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -18,7 +19,10 @@ import WhyRupee from '@/features/global/WhyRupee';
 import TierBadge from '@/features/global/TierBadge';
 import { useIssueDetail } from '@/features/global/useIssueDetail';
 import { useIssueMeta } from '@/features/global/useIssueMeta';
-import { formatTxnDate } from '@/features/wallet/money';
+import { formatTxnDate, formatPaise } from '@/features/wallet/money';
+import IssueFlagDialog from '@/features/global/IssueFlagDialog';
+
+const IssueLocationMap = lazy(() => import('@/features/maps/IssueLocationMap'));
 
 export default function IssueDetailPage() {
   const { issueId } = useParams();
@@ -104,6 +108,11 @@ export default function IssueDetailPage() {
                     {[location.address, location.city, location.state, location.pincode].filter(Boolean).join(', ')}
                   </p>
                 )}
+                <div className="mt-4">
+                  <Suspense fallback={<div className="h-[220px] animate-pulse rounded-xl bg-slate-100" />}>
+                    <IssueLocationMap issue={issue} />
+                  </Suspense>
+                </div>
               </CardContent>
             </Card>
 
@@ -134,9 +143,17 @@ export default function IssueDetailPage() {
                   tiersReached={issue.tiersReached ?? []}
                   escalation={escalation}
                 />
+                {issue.platformCreditPaise > 0 && (
+                  <p className="mt-2 text-xs font-medium text-teal-700">
+                    {t('issues.detail.includesCredit', { amount: formatPaise(issue.platformCreditPaise, i18n.language) })}
+                  </p>
+                )}
                 <div className="mt-4">
                   <SupportPanel issue={issue} viewer={viewer} onSupported={applySupport} onReload={reload} />
                 </div>
+                {viewer.isAuthenticated && !viewer.isReporter && (
+                  <div className="mt-3"><IssueFlagDialog issueId={issue._id} /></div>
+                )}
               </CardContent>
             </Card>
 

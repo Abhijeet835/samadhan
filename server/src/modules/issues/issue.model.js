@@ -112,6 +112,9 @@ const issueSchema = new mongoose.Schema(
     },
     resolvedAt: Date,
     rejectedReason: String,
+    // Phase 8B: admin platform credit added to the fund (not a wallet txn,
+    // not refunded on rejection). fundPaise = Σ supports + platformCreditPaise.
+    platformCreditPaise: { type: Number, default: 0, min: 0 },
     authorityId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Authority',
