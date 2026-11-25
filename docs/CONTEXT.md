@@ -238,7 +238,7 @@ All timestamps are stored in UTC.
 | `PUBLIC_SHARE_BASE_URL` | Phase 6: base URL for OG share pages (e.g. `http://localhost:5000`) |
 | `DEFAULT_SOCIAL_IMAGE_URL` | Phase 6: fallback image for social posts |
 | `GEMINI_API_KEY` | Phase 6: Google Gemini AI API key for social copywriting |
-| `GEMINI_MODEL` | Phase 6: Gemini model name (e.g. `gemini-1.5-flash`) |
+| `GEMINI_MODEL` | Phase 6: Gemini model name (default `gemini-3.5-flash-lite`) |
 | `BUFFER_API_KEY` | Phase 6: Buffer GraphQL API key for X/Facebook/Instagram |
 | `BUFFER_CHANNEL_X`, `BUFFER_CHANNEL_FB`, `BUFFER_CHANNEL_IG` | Phase 6: Buffer channel IDs for each platform |
 | `BUFFER_POST_MODE` | Phase 6: `shareNow` or `addToQueue` |

@@ -15,7 +15,7 @@
 |**i18n parity**|`en.json` / `hi.json` 817/817 keys (`npm run i18n:audit` PASS)|
 |**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
 |**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
-|**Git**|Phases 0–9 committed on `main`|
+|**Git**|Phases 0–9B committed on `main`|
 
 **If you are a new AI session resuming this project:** read `AGENTS.md` → `docs/CONTEXT.md` → this file → `docs/API.md`. Build only the next phase. Do not refactor earlier phases except to fix a documented bug.
 
