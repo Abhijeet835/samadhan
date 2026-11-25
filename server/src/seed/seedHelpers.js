@@ -13,11 +13,9 @@ import Helper from '../modules/helpers/helper.model.js';
 import { ensureWallet } from '../modules/wallet/wallet.service.js';
 import { LOCAL_CATEGORIES } from '../modules/helpers/helper.constants.js';
 
-// 7.1: sample data must never reach production.
-if (process.env.NODE_ENV === 'production') {
-  console.error('[seed:helpers] Refusing to seed sample helpers in production.');
-  process.exit(1);
-}
+// 7.1: sample data must never reach production (unless ALLOW_DEMO_SEED=true).
+import { guardDemoSeed } from './seedGuard.util.js';
+guardDemoSeed();
 
 const CITIES = [
   { city: 'Bengaluru', state: 'Karnataka', pincode: '560001', centre: [77.5946, 12.9716] },

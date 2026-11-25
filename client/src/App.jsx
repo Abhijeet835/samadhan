@@ -1,6 +1,6 @@
 import { Toaster } from 'react-hot-toast';
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 import SiteLayout from '@/components/layout/SiteLayout';
 import LandingPage from '@/pages/LandingPage';
@@ -23,6 +23,9 @@ import HelperProfilePage from '@/pages/HelperProfilePage';
 import HelperRegisterPage from '@/pages/HelperRegisterPage';
 import HelperDashboardPage from '@/pages/HelperDashboardPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import RouteFocus from '@/components/RouteFocus';
+import NotFoundPage from '@/pages/NotFoundPage';
 import { AuthProvider } from '@/context/AuthContext';
 
 const GlobalMapPage = lazy(() => import('@/pages/GlobalMapPage'));
@@ -38,8 +41,10 @@ const MapFallback = () => <div className="mx-auto max-w-6xl px-4 py-8"><div clas
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <AuthProvider>
+        <RouteFocus />
         <Toaster
           position="top-center"
           toastOptions={{
@@ -136,10 +141,11 @@ export default function App() {
               <Route path="settings" element={<Suspense fallback={<MapFallback />}><AdminSettingsPage /></Suspense>} />
               <Route path="audit" element={<Suspense fallback={<MapFallback />}><AdminAuditPage /></Suspense>} />
             </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </ErrorBoundary>
   );
 }

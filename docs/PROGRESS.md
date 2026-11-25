@@ -8,13 +8,14 @@
 
 |Item|Value|
 |---|---|
-|**Phases complete**|0, 1, 2, 3, 4, 5, 6, 7 (+7.1), 8 (8A+8B)|
-|**Next phase**|9 — Polish & deploy|
-|**Server tests**|137/137 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate + 25 tiers/dispatch/cron + 17 social + 25 helpers + 7 notifications/maps + 10 admin)|
-|**i18n parity**|`en.json` / `hi.json` 740/740 keys|
+|**Phases complete**|0–9 ALL COMPLETE (incl. 7.1, 8A/8B, 9A/9B)|
+|**Next phase**|None — prototype complete; see Known Gaps for production work|
+|**Server tests**|142/142 passing (`cd server && npm test`)|
+|**Client tests**|18/18 passing (`cd client && npm test`)|
+|**i18n parity**|`en.json` / `hi.json` 817/817 keys (`npm run i18n:audit` PASS)|
 |**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
 |**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
-|**Git**|Phases 0–6 committed on `main`; Phase 7 uncommitted pending manual testing|
+|**Git**|Phases 0–9 committed on `main`|
 
 **If you are a new AI session resuming this project:** read `AGENTS.md` → `docs/CONTEXT.md` → this file → `docs/API.md`. Build only the next phase. Do not refactor earlier phases except to fix a documented bug.
 
@@ -577,14 +578,55 @@
 
 ---
 
-## Phase 9: Polish & Deploy (Planned)
+## Phase 9A: Final Polish ✅
 
-- [ ] Hindi translation polish
-- [ ] PWA manifest and service worker
-- [ ] Rich seed data
-- [ ] Integration tests
-- [ ] Deployment guide
-- [ ] Demo script
+**Completed:** 2026-11-25
+
+- [x] `client/scripts/i18n-audit.mjs` (`npm run i18n:audit`): key + interpolation parity, used-key existence (dynamic families allowlisted), error-code coverage, unused-key + Hindi==English warnings, plural handling. PASS at 817 keys. `docs/HINDI_GLOSSARY.md` added.
+- [x] `lib/errors.js` `getErrorMessage(error, t)` maps code → `errors.*` (57 codes EN+HI), network/timeout/unknown fallbacks; never renders server English. `lib/api.js`: 30 s timeout + non-blocking "Server is waking up…" banner after 6 s (token-refresh/idempotency untouched).
+- [x] `lib/format.js` single source (formatRupees/formatDate/formatDateTime/formatRelative, Intl en-IN/hi-IN, Latin digits).
+- [x] Accessibility: skip-link + main landmark (existing), per-route document.title + focus move (`RouteFocus`), aria-live banners/badge, icon-button labels, minimal ESLint a11y flat config (`npm run lint:a11y` clean).
+- [x] `NotFoundPage` (bilingual catch-all) + top-level `ErrorBoundary` (bilingual reload screen); unknown /api → 404 envelope.
+- [x] PWA: vite-plugin-pwa@0.21.2 (Vite 6 peer), generated 192/512/maskable icons, manifest + shortcuts, registerType prompt + update toast, app-shell precache only, `/api` NetworkOnly + navigation denylist, Cloudinary SWR / fonts CacheFirst, OSM/Nominatim NOT cached, SW off in dev. `scripts/check-sw.mjs` PASS.
+- [x] `SystemBanners` (offline/waking/update), offline-disabled submit, `lib/draftStorage.js` offline report draft (autosave 500 ms, 7-day expiry, no photos/keys/tokens, resume/discard, clear on submit).
+- [x] Client Vitest (18 tests): geo, format, errors, draftStorage.
+
+## Phase 9B: Production hardening + demo + verifier ✅
+
+**Completed:** 2026-11-25
+
+- [x] Boot-time production env validation (Zod-style, lists all problems, no secret printing); `trust proxy`; explicit 100kb JSON limit; error handler never leaks stacks; graceful shutdown (existing).
+- [x] Seed production guards (`ALLOW_DEMO_SEED` override; admin requires ≥12-char password).
+- [x] `/api/health` adds mongo/uptimeSec/version/commit; `POST /api/internal/jobs/:job` (CRON_SECRET constant-time guard, 404 when unset, rate-limited, same idempotent functions).
+- [x] `seed:demo` / `demo:reset`: 12 reporters + 60 supporters + 36 issues (8 categories, 3 cities, 6 Hindi), tiers via real services, statuses, 2 credits, 2 replies, 3 flags, 15 connections + 10 reviews, 30-day backdate; external integration env blanked before import (zero outbound). Ran on Atlas: 42 issues / 109 wallets, verify:data PASS.
+- [x] `verify:data` (`npm run verify:data`): wallet=Σtxns, fund=supports+credit, refunds, supporterCount, tier audits/EMAIL, helper ratings/connectCount, no phone in payloads. Unit tests with corrupted fixtures.
+- [x] `e2e.flow.test.js` full journey ending in verifyData PASS; `check-env-example.mjs` (PASS 42+1 vars), `secret-scan.mjs` (PASS), `smoke.mjs`; `npm run verify`.
+- [x] `render.yaml`, `client/vercel.json`, `docs/DEPLOYMENT.md` (beginner guide), `README.md`, `docs/DEMO.md` (10-min viva + 22 Q&A).
+
+### Final verification table
+| Check | Result |
+| --- | --- |
+| server `npm test` | 142/142 PASS |
+| client `npm test` | 18/18 PASS |
+| client `npm run build` | clean (Leaflet ~156 KB + Recharts ~437 KB lazy; main ~646 KB) |
+| `npm run i18n:audit` | PASS (817 keys) |
+| `npm run lint:a11y` | PASS |
+| `npm run check-sw` | PASS |
+| `npm run check:env` | PASS |
+| `npm run check:secrets` | PASS |
+| `npm run seed:demo` + `verify:data` | PASS (42 issues / 109 wallets) |
+
+### Known Gaps (final)
+- Not deployed/verified live here; real SMTP/social/Gemini untested (SIMULATED paths verified). No live browser Lighthouse run.
+- Single-instance in-memory connect lock + rate limiter; horizontal scale needs a shared store.
+- OSM/Nominatim prototype usage; helper coords approximated publicly; polling not push.
+- Main client chunk ~646 KB (>200 KB target) — React+router+i18n+global features eager; maps/charts/admin already lazy. Further splitting (vendor chunk) is future work.
+- `errors.js` util + keys complete; not every legacy toast call site was migrated to it (representative integration done).
+
+### Manual checklist (final)
+Hindi walkthrough of 10 key screens · 360 px responsive pass · keyboard-only pass ·
+offline/online draft test · install PWA · Lighthouse PWA + Accessibility ·
+`npm run demo:reset` twice (idempotent) · `npm run verify` · deploy per DEPLOYMENT.md.
 
 ---
 

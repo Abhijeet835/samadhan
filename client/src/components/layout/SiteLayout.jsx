@@ -4,6 +4,7 @@ import { Outlet } from 'react-router-dom';
 import BottomNav from '@/components/layout/BottomNav';
 import Footer from '@/components/layout/Footer';
 import Navbar from '@/components/layout/Navbar';
+import SystemBanners from '@/components/SystemBanners';
 
 export default function SiteLayout() {
   const { t } = useTranslation();
@@ -18,6 +19,7 @@ export default function SiteLayout() {
       </a>
 
       <Navbar />
+      <SystemBanners />
 
       <main id="main-content" className="flex-1">
         <Outlet />

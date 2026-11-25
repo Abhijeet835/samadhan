@@ -33,7 +33,6 @@ export function useIssuesFeed() {
   useEffect(() => {
     const timer = setTimeout(() => load(filters), filters.q ? 350 : 0);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   return { issues, pagination, filters, setFilters, loading, reload: () => load(filters) };

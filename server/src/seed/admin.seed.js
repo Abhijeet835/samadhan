@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 import { env } from '../config/env.js';
 import { connectDB } from '../config/db.js';
 import User from '../modules/users/user.model.js';
+import { guardAdminSeed } from './seedGuard.util.js';
+
+guardAdminSeed();
 
 const SALT_ROUNDS = 10;
 

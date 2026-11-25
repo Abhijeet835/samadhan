@@ -51,6 +51,10 @@ GET /api/health
   "data": {
     "status": "ok",
     "db": "connected",
+    "mongo": "connected",
+    "uptimeSec": 12,
+    "version": "0.1.0",
+    "commit": null,
     "timestamp": "2026-11-24T10:30:00.000Z"
   }
 }
@@ -64,6 +68,10 @@ GET /api/health
   "data": {
     "status": "ok",
     "db": "disconnected",
+    "mongo": "disabled",
+    "uptimeSec": 3,
+    "version": "0.1.0",
+    "commit": null,
     "timestamp": "2026-11-24T10:30:00.000Z"
   }
 }
@@ -75,6 +83,10 @@ GET /api/health
 |---|---|---|
 |`status`|string|Always `"ok"` when the Express process can answer|
 |`db`|string|Mongoose connection state: `connected`, `connecting`, `disconnecting`, `disconnected`|
+|`mongo`|string|Phase 9B: `connected` / `disconnected` / `disabled` (no MONGO_URI)|
+|`uptimeSec`|number|Phase 9B: process uptime in seconds|
+|`version`|string|Phase 9B: server package.json version|
+|`commit`|string\|null|Phase 9B: RENDER_GIT_COMMIT or null|
 |`timestamp`|string|Server time in UTC, ISO 8601|
 
 **Notes**
@@ -1013,62 +1025,16 @@ All `/api/admin/*` routes require JWT + ADMIN role (401 no token, 403 otherwise)
 
 ---
 
-## Error codes
+## Internal jobs (Phase 9B)
 
-|HTTP|Code|Meaning|
-|---|---|---|
-|404|`NOT_FOUND`|No route matches the request|
-|400|`VALIDATION_ERROR`|Zod validation failed; the message lists field paths|
-|401|`UNAUTHORIZED`|Authentication required|
-|401|`TOKEN_EXPIRED`|JWT token has expired|
-|401|`INVALID_TOKEN`|JWT token is invalid|
-|401|`INVALID_CREDENTIALS`|Wrong email or password|
-|401|`INVALID_PASSWORD`|Current password is incorrect|
-|403|`FORBIDDEN`|Insufficient permissions|
-|403|`ACCOUNT_DISABLED`|User account has been disabled|
-|404|`USER_NOT_FOUND`|User not found|
-|409|`EMAIL_EXISTS`|Email address already registered|
-|409|`PHONE_EXISTS`|Phone number already registered|
-|409|`INSUFFICIENT_BALANCE`|Wallet debit would make the balance negative|
-|400|`INVALID_AMOUNT`|amountPaise is not a non-zero integer or sign mismatches the txn type|
-|400|`INVALID_TXN_TYPE`|Unknown wallet transaction type|
-|400|`IDEMPOTENCY_KEY_REQUIRED`|Missing idempotencyKey on a wallet charge|
-|500|`SETTING_NOT_FOUND`|Settings key missing (ensureDefaultSettings not run)|
-|404|`ISSUE_NOT_FOUND`|Issue does not exist or is not visible to the viewer|
-|409|`DUPLICATE_FOUND`|Similar open issue nearby; error carries `existingIssue`|
-|409|`ISSUE_NOT_SUPPORTABLE`|Issue status does not allow support|
-|409|`ALREADY_SUPPORTED`|User already supported this issue|
-|409|`IDEMPOTENCY_KEY_CONFLICT`|Key already used for a different user/issue|
-|404|`AUTHORITY_NOT_FOUND`|Authority does not exist|
-|404|`DISPATCH_NOT_FOUND`|Dispatch row does not exist|
-|409|`DISPATCH_NOT_RETRYABLE`|Row is not FAILED or attempts exhausted|
-|409|`HELPER_PROFILE_EXISTS`|User already has a helper profile|
-|404|`HELPER_PROFILE_NOT_FOUND`|No helper profile for this user (dashboard)|
-|404|`HELPER_NOT_FOUND`|Helper missing, non-VERIFIED or hidden for this viewer|
-|409|`CANNOT_CONNECT_SELF`|Cannot connect to your own helper profile|
-|429|`CONNECT_LIMIT_EXCEEDED`|10 connects per rolling 24 h reached|
-|403|`CONNECTION_REQUIRED`|Must connect before reviewing|
-|409|`CANNOT_REVIEW_SELF`|Cannot review your own helper profile|
-|409|`ALREADY_FLAGGED`|User already flagged this helper|
-|409|`CANNOT_FLAG_SELF`|Cannot flag your own helper profile|
-|400|`CONTACT_IN_TEXT`|Phone-like digit run or URL in free text|
-|429|`RATE_LIMITED`|Per-IP request budget exhausted|
-|400|`BBOX_INVALID`|Missing/invalid bounding-box edges|
-|400|`BBOX_TOO_LARGE`|Bounding-box span exceeds 5°|
-|404|`NOTIFICATION_NOT_FOUND`|Notification missing or owned by another user|
-|400|`CATEGORY_DISABLED`|Chosen category is currently disabled|
-|403|`FORBIDDEN_TARGET`|Cannot modify self or another admin|
-|409|`CANNOT_FLAG_OWN_ISSUE`|Cannot flag your own issue|
-|409|`ISSUE_NOT_OPEN`|Action requires a non-terminal issue|
-|409|`INVALID_TRANSITION`|Status transition not allowed from the current status|
-|409|`REOPEN_WINDOW_EXPIRED`|Reopen attempted more than 7 days after resolution|
-|400|`IMAGE_REQUIRED`|Upload request contained no file|
-|400|`INVALID_IMAGE_TYPE`|Uploaded file is not JPEG/PNG/WebP|
-|502|`UPLOAD_FAILED`|Cloudinary rejected the upload|
-|503|`CLOUDINARY_NOT_CONFIGURED`|Server has no Cloudinary credentials configured|
-|500|`INTERNAL_SERVER_ERROR`|Unexpected server error|
+### `POST /api/internal/jobs/:job`
 
-Every new endpoint must be documented here before phase handoff.
+`job` = `autoclose` | `dispatch-sweep`. For external cron (e.g. cron-job.org) on
+sleeping free-tier hosts. **404** when `CRON_SECRET` is unset; otherwise requires
+header `X-Cron-Secret` (constant-time compare, **401** on mismatch), rate-limited
+30/min. Calls the SAME idempotent functions node-cron uses. Returns
+`{ ran: true, affectedCount }`. node-cron remains for local/always-on use
+(`ENABLE_CRON`).
 
 ---
 
@@ -1300,12 +1266,63 @@ Update social publish mode.
 
 ---
 
-## Error Codes (Phase 6 Additions)
+## Error codes
 
-|Status|Code|Description|
+|HTTP|Code|Meaning|
 |---|---|---|
+|404|`NOT_FOUND`|No route matches the request|
+|400|`VALIDATION_ERROR`|Zod validation failed; the message lists field paths|
+|401|`UNAUTHORIZED`|Authentication required|
+|401|`TOKEN_EXPIRED`|JWT token has expired|
+|401|`INVALID_TOKEN`|JWT token is invalid|
+|401|`INVALID_CREDENTIALS`|Wrong email or password|
+|401|`INVALID_PASSWORD`|Current password is incorrect|
+|403|`FORBIDDEN`|Insufficient permissions|
+|403|`ACCOUNT_DISABLED`|User account has been disabled|
+|404|`USER_NOT_FOUND`|User not found|
+|409|`EMAIL_EXISTS`|Email address already registered|
+|409|`PHONE_EXISTS`|Phone number already registered|
+|409|`INSUFFICIENT_BALANCE`|Wallet debit would make the balance negative|
+|400|`INVALID_AMOUNT`|amountPaise is not a non-zero integer or sign mismatches the txn type|
+|400|`INVALID_TXN_TYPE`|Unknown wallet transaction type|
+|400|`IDEMPOTENCY_KEY_REQUIRED`|Missing idempotencyKey on a wallet charge|
+|500|`SETTING_NOT_FOUND`|Settings key missing (ensureDefaultSettings not run)|
+|404|`ISSUE_NOT_FOUND`|Issue does not exist or is not visible to the viewer|
+|409|`DUPLICATE_FOUND`|Similar open issue nearby; error carries `existingIssue`|
+|409|`ISSUE_NOT_SUPPORTABLE`|Issue status does not allow support|
+|409|`ALREADY_SUPPORTED`|User already supported this issue|
+|409|`IDEMPOTENCY_KEY_CONFLICT`|Key already used for a different user/issue|
+|404|`AUTHORITY_NOT_FOUND`|Authority does not exist|
+|404|`DISPATCH_NOT_FOUND`|Dispatch row does not exist|
+|409|`DISPATCH_NOT_RETRYABLE`|Row is not FAILED or attempts exhausted|
 |404|`POST_NOT_FOUND`|Social post does not exist|
 |410|`POST_TAKEN_DOWN`|Social post has been taken down|
 |409|`POST_ALREADY_TAKEN_DOWN`|Cannot publish taken down post|
 |409|`POST_NOT_REGENERATABLE`|Cannot regenerate `POSTED` or `TAKEN_DOWN` post|
-|429|`RATE_LIMITED`|Too many click tracking requests|
+|409|`HELPER_PROFILE_EXISTS`|User already has a helper profile|
+|404|`HELPER_PROFILE_NOT_FOUND`|No helper profile for this user (dashboard)|
+|404|`HELPER_NOT_FOUND`|Helper missing, non-VERIFIED or hidden for this viewer|
+|409|`CANNOT_CONNECT_SELF`|Cannot connect to your own helper profile|
+|429|`CONNECT_LIMIT_EXCEEDED`|10 connects per rolling 24 h reached|
+|403|`CONNECTION_REQUIRED`|Must connect before reviewing|
+|409|`CANNOT_REVIEW_SELF`|Cannot review your own helper profile|
+|409|`ALREADY_FLAGGED`|User already flagged this helper|
+|409|`CANNOT_FLAG_SELF`|Cannot flag your own helper profile|
+|400|`CONTACT_IN_TEXT`|Phone-like digit run or URL in free text|
+|429|`RATE_LIMITED`|Per-IP request budget exhausted|
+|400|`BBOX_INVALID`|Missing/invalid bounding-box edges|
+|400|`BBOX_TOO_LARGE`|Bounding-box span exceeds 5°|
+|404|`NOTIFICATION_NOT_FOUND`|Notification missing or owned by another user|
+|400|`CATEGORY_DISABLED`|Chosen category is currently disabled|
+|403|`FORBIDDEN_TARGET`|Cannot modify self or another admin|
+|409|`CANNOT_FLAG_OWN_ISSUE`|Cannot flag your own issue|
+|409|`ISSUE_NOT_OPEN`|Action requires a non-terminal issue|
+|409|`INVALID_TRANSITION`|Status transition not allowed from the current status|
+|409|`REOPEN_WINDOW_EXPIRED`|Reopen attempted more than 7 days after resolution|
+|400|`IMAGE_REQUIRED`|Upload request contained no file|
+|400|`INVALID_IMAGE_TYPE`|Uploaded file is not JPEG/PNG/WebP|
+|502|`UPLOAD_FAILED`|Cloudinary rejected the upload|
+|503|`CLOUDINARY_NOT_CONFIGURED`|Server has no Cloudinary credentials configured|
+|500|`INTERNAL_SERVER_ERROR`|Unexpected server error|
+
+Every new endpoint must be documented here before phase handoff.

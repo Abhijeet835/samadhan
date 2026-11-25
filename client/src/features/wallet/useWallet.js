@@ -56,7 +56,6 @@ export function useWallet() {
     // Wallet fetch may lazily create the wallet + SIGNUP_CREDIT row, so the
     // history must load after it to include that first entry.
     loadWallet().then(() => loadTxns(1));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function topup(amountPaise) {

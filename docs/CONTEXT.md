@@ -164,7 +164,7 @@ Before creating an issue (unless `force === true`), run `$geoNear` on same-categ
 
 ---
 
-## 8. Data model — 15 planned collections
+## 8. Data model — 17 collections
 
 | Collection | Purpose | Key indexes |
 | --- | --- | --- |
@@ -181,6 +181,7 @@ Before creating an issue (unless `force === true`), run `$geoNear` on same-categ
 | `helpers` | Local service providers | `2dsphere(serviceLocation)`, `(verificationStatus, isHidden, categories)` |
 | `connections` | Connect-before-contact records | `(seekerId, helperId)`, `(seekerId, createdAt)` |
 | `reviews` | Verified ratings | unique `(helperId, seekerId)` |
+| `helperFlags` | Helper flags (3 non-dismissed auto-hide) | unique `(helperId, userId)` |
 | `notifications` | In-app notification centre (12 types, PII-free payload) | `(userId, readAt, createdAt)`, unique `(userId, dedupeKey)` partial, TTL 90 d |
 | `settings` / `auditLogs` | Config + immutable admin audit (entity/entityId/before/after) | unique `settings.key`, `auditLogs.createdAt:-1`, `(action,createdAt)`, `(entity,entityId,createdAt)` |
 
@@ -193,7 +194,8 @@ All timestamps are stored in UTC.
 - Base prefix: `/api`
 - Success: `{ "success": true, "data": ... }`
 - Failure: `{ "success": false, "error": { "code": "MACHINE_CODE", "message": "Human readable message" } }`. Error objects may carry extra detail fields alongside `code`/`message` (e.g. `error.existingIssue` on `DUPLICATE_FOUND`).
-- Health: `GET /api/health` is public and must remain available even when MongoDB is not configured.
+- Health: `GET /api/health` is public and must remain available even when MongoDB is not configured. Returns `{ status, db, mongo, uptimeSec, version, commit, timestamp }` (no secrets).
+- Internal jobs (Phase 9B): `POST /api/internal/jobs/:job` (autoclose | dispatch-sweep) for external cron on sleeping hosts; 404 when `CRON_SECRET` unset, else constant-time `X-Cron-Secret` check; runs the same idempotent functions as node-cron.
 - Protected routes: JWT auth + role + ownership. Admin routes are strictly `ADMIN`.
 - Admin surface (Phase 8B): `/api/admin/{issues,users,settings,categories,dashboard,audit}` plus the earlier `authorities`, `dispatch`, `social`, `helpers`, `issues/:id/recheck-tiers`. Every admin mutation writes an immutable, PII-free audit row; audit rows are never updated or deleted.
 
@@ -229,6 +231,10 @@ All timestamps are stored in UTC.
 | `N8N_WEBHOOK_URL` | Optional Phase 5 hook |
 | `N8N_WEBHOOK_SECRET` | Optional Phase 5 hook secret (`X-Samadhan-Secret` header) |
 | `ENABLE_CRON` | Phase 5: `false` disables scheduled jobs |
+| `NODE_ENV` | Phase 9B: `production` triggers boot-time env validation + seed guards |
+| `CRON_SECRET` | Phase 9B: guards `POST /api/internal/jobs/:job` (empty = disabled) |
+| `ALLOW_DEMO_SEED` | Phase 9B: `true` permits demo/sample seeds in production (remove after) |
+| `RENDER_GIT_COMMIT` | Phase 9B: surfaced in `/api/health` (set by host) |
 | `PUBLIC_SHARE_BASE_URL` | Phase 6: base URL for OG share pages (e.g. `http://localhost:5000`) |
 | `DEFAULT_SOCIAL_IMAGE_URL` | Phase 6: fallback image for social posts |
 | `GEMINI_API_KEY` | Phase 6: Google Gemini AI API key for social copywriting |

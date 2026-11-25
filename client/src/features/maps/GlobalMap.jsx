@@ -23,7 +23,6 @@ function MoveWatcher({ onMove }) {
   const map = useMapEvents({ moveend: () => onMove(map) });
   useEffect(() => {
     onMove(map);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;
 }

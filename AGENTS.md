@@ -27,3 +27,12 @@
 2. Append a filled Phase Handoff Block to `docs/PROGRESS.md`.
 3. Update `docs/API.md` with any newly added endpoints.
 4. Give the user exact manual test steps to verify the phase before committing to Git.
+
+## Final commands (all phases complete)
+- Server tests: `cd server && npm test` (142) · full verify: `npm run verify`
+- Client tests: `cd client && npm test` (18) · build: `npm run build`
+- Quality gates: `cd client && npm run i18n:audit && npm run lint:a11y && npm run check-sw`
+- Server gates: `cd server && npm run check:env && npm run check:secrets && npm run verify:data`
+- Demo data: `cd server && npm run demo:reset` (idempotent) · `npm run demo:on|off`
+- Deploy smoke: `node server/scripts/smoke.mjs <apiUrl> <clientUrl>`
+- Deployment guide: `docs/DEPLOYMENT.md` · viva script: `docs/DEMO.md`

@@ -1,0 +1,53 @@
+# Render Blueprint — Samadhan API (single web service).
+# Secrets use sync:false (set in the Render dashboard). See docs/DEPLOYMENT.md.
+services:
+  - type: web
+    name: samadhan-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLIENT_URL
+        sync: false        # set to your Vercel URL after the client deploy
+      - key: PUBLIC_SHARE_BASE_URL
+        sync: false        # set to this Render service URL (OG page lives here)
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # Optional integrations — keep empty to stay SIMULATED:
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: N8N_WEBHOOK_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: BUFFER_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false

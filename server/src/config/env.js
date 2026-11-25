@@ -48,6 +48,26 @@ export const env = Object.freeze({
   redditClientSecret: process.env.REDDIT_CLIENT_SECRET ?? '',
   redditRefreshToken: process.env.REDDIT_REFRESH_TOKEN ?? '',
   redditUserAgent: (process.env.REDDIT_USER_AGENT ?? 'samadhan-prototype/1.0').trim(),
+  cronSecret: process.env.CRON_SECRET ?? '',
+  allowDemoSeed: (process.env.ALLOW_DEMO_SEED ?? '').trim() === 'true',
+  renderGitCommit: process.env.RENDER_GIT_COMMIT ?? null,
 });
 
 export const isProduction = env.nodeEnv === 'production';
+
+// Boot-time validation in production: fail fast listing ALL problems, never
+// printing secret values. Development keeps current leniency.
+export function validateProductionEnv() {
+  if (!isProduction) return [];
+  const problems = [];
+  if (!env.mongoUri) problems.push('MONGO_URI is required');
+  if (!env.jwtSecret || env.jwtSecret.length < 32 || /example|dev_jwt|samadhan_dev/i.test(env.jwtSecret)) {
+    problems.push('JWT_SECRET must be ≥32 chars and not an example/default value');
+  }
+  for (const url of env.clientUrl.split(',').map((s) => s.trim()).filter(Boolean)) {
+    try { new URL(url); } catch { problems.push(`CLIENT_URL contains an invalid URL: ${url}`); }
+  }
+  if (!env.clientUrl) problems.push('CLIENT_URL is required');
+  if (!env.publicShareBaseUrl) problems.push('PUBLIC_SHARE_BASE_URL is required');
+  return problems;
+}

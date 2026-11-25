@@ -5,6 +5,9 @@ import mongoose from 'mongoose';
 import { connectDB, disconnectDB } from '../config/db.js';
 import Authority from '../modules/authorities/authority.model.js';
 import { normaliseCity } from '../modules/authorities/authority.service.js';
+import { guardDemoSeed } from './seedGuard.util.js';
+
+guardDemoSeed();
 
 const SAMPLE_AUTHORITIES = [
   {

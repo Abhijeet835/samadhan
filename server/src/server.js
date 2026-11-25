@@ -1,8 +1,14 @@
-import { env } from './config/env.js';
+import { env, validateProductionEnv } from './config/env.js';
 import app from './app.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { ensureDefaultSettings } from './modules/wallet/wallet.service.js';
 import { registerJobs } from './jobs/index.js';
+
+const envProblems = validateProductionEnv();
+if (envProblems.length) {
+  console.error('[boot] Production environment invalid:\n - ' + envProblems.join('\n - '));
+  process.exit(1);
+}
 
 const server = app.listen(env.port, () => {
   console.log(`[server] Samadhan API listening on http://localhost:${env.port}`);

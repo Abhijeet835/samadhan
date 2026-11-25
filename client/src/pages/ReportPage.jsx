@@ -14,6 +14,9 @@ import { uploadPhoto } from '@/features/global/uploadPhoto';
 import { forwardGeocode, parseAddressParts, reverseGeocode } from '@/features/global/geocode';
 import DuplicateDialog from '@/features/global/DuplicateDialog';
 import WhyRupee from '@/features/global/WhyRupee';
+import { Dialog } from '@/components/ui/dialog';
+import { useAuth } from '@/context/AuthContext';
+import { saveDraft, loadDraft, clearDraft } from '@/lib/draftStorage';
 
 const LocationPicker = lazy(() => import('@/features/maps/LocationPicker'));
 
@@ -57,6 +60,40 @@ export default function ReportPage() {
   // can never double-charge.
   const idempotencyKeyRef = useRef(`report:${crypto.randomUUID()}`);
   const fileInputRef = useRef(null);
+
+  const { user } = useAuth();
+  const [resumeDraft, setResumeDraft] = useState(null);
+  const [offline, setOffline] = useState(typeof navigator !== 'undefined' && !navigator.onLine);
+
+  // Offer to resume a saved offline draft (photos must be re-added).
+  useEffect(() => {
+    const d = loadDraft(user?._id);
+    if (d && (d.title || d.description)) setResumeDraft(d);
+    const on = () => setOffline(false);
+    const off = () => setOffline(true);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, [user?._id]);
+
+  // Autosave (debounced 500 ms). Never stores photos/keys/payment state.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      saveDraft(user?._id, {
+        category: form.category, title: form.title, description: form.description,
+        location: coords ? { coordinates: [coords.lng, coords.lat], address: form.address, city: form.city, state: form.state, pincode: form.pincode } : null,
+        step,
+      });
+    }, 500);
+    return () => clearTimeout(id);
+  }, [form, coords, step, user?._id]);
+
+  function applyDraft(d) {
+    setForm((prev) => ({ ...prev, title: d.title ?? '', description: d.description ?? '', category: d.category ?? '', address: d.location?.address ?? '', city: d.location?.city ?? '', state: d.location?.state ?? '', pincode: d.location?.pincode ?? '' }));
+    if (d.location?.coordinates) setCoords({ lng: d.location.coordinates[0], lat: d.location.coordinates[1] });
+    setStep(d.step ?? 0);
+    setResumeDraft(null);
+  }
 
   useEffect(() => {
     api.get('/issues/meta').then((res) => setMeta(res.data)).catch(() => {});
@@ -155,6 +192,7 @@ export default function ReportPage() {
       };
       const response = await api.post('/issues', payload);
       toast.success(t('report.success'));
+      clearDraft(user?._id);
       navigate(`/issues/${response.data.issue._id}`);
     } catch (error) {
       const code = error.response?.data?.error?.code;
@@ -211,6 +249,9 @@ export default function ReportPage() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-slate-900">{t('report.title')}</h1>
           <p className="mt-2 text-slate-600">{t('report.subtitle')}</p>
+          {offline && (
+            <p className="mt-2 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white" role="status">{t('offline.draftSaved')}</p>
+          )}
         </div>
 
         {/* Step indicator */}
@@ -436,7 +477,7 @@ export default function ReportPage() {
                   </Link>
                 )}
 
-                <Button type="button" onClick={() => handleSubmit()} disabled={submitting} className="w-full gap-2">
+                <Button type="button" onClick={() => handleSubmit()} disabled={submitting || offline} title={offline ? t('offline.submitDisabled') : undefined} className="w-full gap-2">
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {!submitting && <Check className="h-4 w-4" />}
                   {submitting ? t('common.loading') : t('report.confirm.submit')}
@@ -467,6 +508,14 @@ export default function ReportPage() {
           }}
           forcing={submitting}
         />
+
+        <Dialog open={!!resumeDraft} onClose={() => setResumeDraft(null)} title={t('draft.resumeTitle')}>
+          <p className="text-sm text-slate-600">{t('draft.resumeBody')}</p>
+          <div className="mt-4 flex gap-2">
+            <Button className="flex-1" onClick={() => applyDraft(resumeDraft)}>{t('draft.resume')}</Button>
+            <Button variant="outline" className="flex-1" onClick={() => { clearDraft(user?._id); setResumeDraft(null); }}>{t('draft.discard')}</Button>
+          </div>
+        </Dialog>
       </div>
     </div>
   );

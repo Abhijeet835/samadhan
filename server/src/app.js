@@ -14,6 +14,7 @@ import { adminRouter as socialAdminRoutes, publicRouter as socialPublicRoutes } 
 import helperRoutes, { adminRouter as helperAdminRoutes } from './modules/helpers/helper.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import internalRoutes from './modules/internal/internal.routes.js';
 import { ogPage } from './modules/social/og.controller.js';
 import * as dispatchController from './modules/dispatch/dispatch.controller.js';
 import { issueIdParamSchema } from './modules/issues/issue.schema.js';
@@ -45,8 +46,8 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', userRoutes);
@@ -60,6 +61,7 @@ app.use('/api/admin/helpers', helperAdminRoutes);
 app.use('/api/social', socialPublicRoutes);
 app.use('/api/helpers', helperRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/internal', internalRoutes);
 // Public OG share page — deliberately NOT under /api.
 app.get('/i/:id', ogPage);
 app.post(
