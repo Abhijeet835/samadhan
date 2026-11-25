@@ -3,6 +3,7 @@ import AuditLog from './auditLog.model.js';
 import { getEffectiveTierThresholds } from '../wallet/wallet.service.js';
 import { matchAuthority } from '../authorities/authority.service.js';
 import { ensureDispatchRow, runDispatchRow } from '../dispatch/dispatch.service.js';
+import { generateBundle } from '../social/social.service.js';
 
 /**
  * Race-safe tier claims. Called AFTER a payment transaction commits — never
@@ -77,6 +78,16 @@ export async function checkTiers(issueId) {
   }
 
   const done = (async () => {
+    // SOCIAL_BUNDLE step: only the claim winner reaches this path.
+    for (const tier of claimedTiers) {
+      try {
+        const bundle = await generateBundle({ issueId, tier });
+        await bundle.done;
+        // Phase 8: notify reporter and supporters
+      } catch (error) {
+        console.error('[tiers] social bundle failed:', error.message);
+      }
+    }
     for (const row of rows) {
       try {
         await runDispatchRow(row._id);

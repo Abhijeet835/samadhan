@@ -221,6 +221,19 @@ All timestamps are stored in UTC.
 | `N8N_WEBHOOK_URL` | Optional Phase 5 hook |
 | `N8N_WEBHOOK_SECRET` | Optional Phase 5 hook secret (`X-Samadhan-Secret` header) |
 | `ENABLE_CRON` | Phase 5: `false` disables scheduled jobs |
+| `PUBLIC_SHARE_BASE_URL` | Phase 6: base URL for OG share pages (e.g. `http://localhost:5000`) |
+| `DEFAULT_SOCIAL_IMAGE_URL` | Phase 6: fallback image for social posts |
+| `GEMINI_API_KEY` | Phase 6: Google Gemini AI API key for social copywriting |
+| `GEMINI_MODEL` | Phase 6: Gemini model name (e.g. `gemini-1.5-flash`) |
+| `BUFFER_API_KEY` | Phase 6: Buffer GraphQL API key for X/Facebook/Instagram |
+| `BUFFER_CHANNEL_X`, `BUFFER_CHANNEL_FB`, `BUFFER_CHANNEL_IG` | Phase 6: Buffer channel IDs for each platform |
+| `BUFFER_POST_MODE` | Phase 6: `shareNow` or `addToQueue` |
+| `TELEGRAM_BOT_TOKEN` | Phase 6: Telegram Bot API token |
+| `TELEGRAM_CHAT_ID` | Phase 6: Telegram channel/chat ID (e.g. `@samadhan_issues`) |
+| `REDDIT_SUBREDDIT` | Phase 6: Reddit subreddit name (without r/) |
+| `UPLOAD_POST_API_KEY` | Phase 6: upload.post API key for Reddit (primary) |
+| `UPLOAD_POST_USER` | Phase 6: upload.post username |
+| `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_REFRESH_TOKEN`, `REDDIT_USER_AGENT` | Phase 6: Reddit OAuth credentials (fallback) |
 
 ### Client (`client/.env`)
 

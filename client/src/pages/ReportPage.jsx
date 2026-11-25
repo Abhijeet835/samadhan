@@ -13,6 +13,7 @@ import { ISSUE_CATEGORIES } from '@/features/global/constants';
 import { uploadPhoto } from '@/features/global/uploadPhoto';
 import { forwardGeocode, parseAddressParts, reverseGeocode } from '@/features/global/geocode';
 import DuplicateDialog from '@/features/global/DuplicateDialog';
+import WhyRupee from '@/features/global/WhyRupee';
 
 const STEPS = ['details', 'location', 'photos', 'confirm'];
 
@@ -409,6 +410,8 @@ export default function ReportPage() {
                     {t('report.confirm.disclaimer')}
                   </p>
                 </div>
+
+                <WhyRupee compact />
 
                 {submitError && (
                   <p role="alert" className="text-sm font-medium text-red-600">{submitError}</p>

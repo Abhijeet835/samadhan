@@ -119,6 +119,16 @@ const issueSchema = new mongoose.Schema(
     },
     tier1ReachedAt: Date,
     tier2ReachedAt: Date,
+    // Public OG-page views per share source (Phase 6).
+    reachBySource: {
+      x: { type: Number, default: 0, min: 0 },
+      fb: { type: Number, default: 0, min: 0 },
+      ig: { type: Number, default: 0, min: 0 },
+      rd: { type: Number, default: 0, min: 0 },
+      tg: { type: Number, default: 0, min: 0 },
+      wa: { type: Number, default: 0, min: 0 },
+      direct: { type: Number, default: 0, min: 0 },
+    },
   },
   {
     timestamps: true,

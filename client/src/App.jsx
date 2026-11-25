@@ -12,6 +12,8 @@ import IssueDetailPage from '@/pages/IssueDetailPage';
 import ReportPage from '@/pages/ReportPage';
 import MyActivityPage from '@/pages/MyActivityPage';
 import AdminDispatchPage from '@/pages/AdminDispatchPage';
+import TrendingPage from '@/pages/TrendingPage';
+import AdminSocialPage from '@/pages/AdminSocialPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/context/AuthContext';
 
@@ -38,6 +40,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/issues" element={<IssuesPage />} />
+            <Route path="/trending" element={<TrendingPage />} />
             <Route path="/issues/:issueId" element={<IssueDetailPage />} />
             <Route
               path="/report"
@@ -76,6 +79,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['ADMIN']}>
                   <AdminDispatchPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/social"
+              element={
+                <ProtectedRoute roles={['ADMIN']}>
+                  <AdminSocialPage />
                 </ProtectedRoute>
               }
             />

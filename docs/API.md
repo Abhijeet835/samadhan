@@ -672,6 +672,52 @@ Public, but sends viewer context when an `Authorization` header is present (`opt
 - `400 VALIDATION_ERROR` — `issueId` is not a 24-hex ObjectId
 - `404 ISSUE_NOT_FOUND` — Issue does not exist or is not visible to the viewer
 
+### `GET /api/issues/trending`
+
+Public. Returns tier≥1 issues sorted by tier descending, then by total reach, then supporterCount descending. Excludes `REJECTED` and `CLOSED` issues.
+
+**Query Parameters**
+
+|Param|Type|Default|Description|
+|---|---|---|---|
+|`page`|integer ≥ 1|`1`|Page number|
+|`limit`|integer 1–50|`20`|Issues per page|
+|`category`|enum|—|Filter by issue category (`ROAD`, `GARBAGE`, `WATER`, `STREETLIGHT`, `SEWAGE`, `ELECTRICITY`, `PARK`, `OTHER`)|
+|`city`|string|—|Filter by city name (case-insensitive substring)|
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "issues": [
+      {
+        "_id": "6b05c123…",
+        "title": "Major road pothole...",
+        "category": "ROAD",
+        "status": "ACTIVE",
+        "tier": 2,
+        "fundPaise": 50000,
+        "supporterCount": 496,
+        "totalReach": 125,
+        "photos": ["…"],
+        "location": { "city": "Bengaluru" },
+        "createdAt": "…"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 42, "totalPages": 3 }
+  }
+}
+```
+
+**Notes**
+
+- `totalReach` = sum of `reachBySource` (`x`, `fb`, `ig`, `rd`, `tg`, `wa`, `direct`)
+- Sort: tier DESC, totalReach DESC, supporterCount DESC
+
+---
+
 ### `POST /api/issues/:issueId/transition`
 
 Protected. The **only** path to change issue status. Uses a conditional update against the current status so concurrent transitions cannot corrupt the machine; writes an `IssueUpdate` timeline row in the same transaction. `REJECTED` triggers the atomic refund of all contributions.
@@ -900,3 +946,243 @@ Admin-only. Re-runs `checkTiers` after threshold changes. Already-claimed tiers 
 |500|`INTERNAL_SERVER_ERROR`|Unexpected server error|
 
 Future phases add domain-specific codes such as `RATE_LIMITED` (Phase 7). Every new endpoint must be documented here before phase handoff.
+
+---
+
+## Phase 6 — Social Amplification
+
+### `GET /api/issues/:issueId/social` · `GET /api/social/issues/:issueId/social`
+
+Public. Returns non-taken-down social posts and `reachBySource` counts for a tier≥1 issue. Empty `posts` array for tier 0.
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "posts": [
+      {
+        "_id": "6b05c456…",
+        "platform": "X",
+        "tier": 1,
+        "status": "SIMULATED",
+        "generationSource": "TEMPLATE",
+        "captionEn": "🚨 road issue in Bengaluru…",
+        "captionHi": "🚨 Bengaluru में सड़क समस्या…",
+        "externalUrl": "",
+        "shareClicks": 3
+      }
+    ],
+    "reachBySource": { "x": 1, "fb": 0, "ig": 0, "rd": 0, "tg": 0, "wa": 2, "direct": 0 }
+  }
+}
+```
+
+**Errors**
+
+- `400 VALIDATION_ERROR` — Invalid `issueId`
+- `404 ISSUE_NOT_FOUND` — Issue missing or `REJECTED`
+
+---
+
+### `POST /api/social/:postId/click`
+
+Public (IP rate-limited). Tracks a share/copy/download click and increments `SocialPost.shareClicks`.
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "shareClicks": 4
+  }
+}
+```
+
+**Errors**
+
+- `400 VALIDATION_ERROR` — Invalid `postId`
+- `404 POST_NOT_FOUND`
+- `410 POST_TAKEN_DOWN`
+- `429 RATE_LIMITED`
+
+---
+
+### `GET /i/:id`
+
+Public OG share page (mounted at root, outside `/api`). Server-rendered HTML with Open Graph and Twitter meta tags for issue `id`. Increments `issue.reachBySource[s]` (`x|fb|ig|rd|tg|wa|direct`) on non-crawler visits.
+
+**Response — 200 OK (HTML)**
+
+Returns full HTML page with:
+- `<title>` = issue title
+- `og:title`, `og:description`, `og:image`, `og:url`, `twitter:card`
+- Link to the React app `/issues/:id`, active external post links, and not-official/112 disclaimer
+
+**Response — 404 Not Found (HTML)**
+
+For missing, invalid, or `REJECTED` issues, returns HTML with `<meta name="robots" content="noindex" />`.
+
+**Notes**
+
+- Crawler detection: social crawlers (`facebookexternalhit`, `whatsapp`, `twitterbot`, `telegrambot`, `redditbot`, `googlebot`, etc.) do NOT increment `reachBySource`.
+- Real user visits increment `reachBySource[source]`.
+
+---
+
+## Admin — Social Management
+
+All admin social endpoints require `role: ADMIN` and `Authorization: Bearer <JWT>`.
+
+### `GET /api/admin/social`
+
+Lists all social posts with pagination and filtering, plus current `socialPublishMode`.
+
+**Query Parameters**
+
+|Param|Type|Default|Description|
+|---|---|---|---|
+|`page`|integer ≥ 1|`1`|Page number|
+|`limit`|integer 1–100|`20`|Posts per page|
+|`issueId`|ObjectId|—|Filter by issue|
+|`platform`|enum|—|Filter by platform (`X`, `FACEBOOK`, `INSTAGRAM`, `TELEGRAM`, `REDDIT`, `WHATSAPP`)|
+|`status`|enum|—|Filter by status (`GENERATED`, `POSTING`, `POSTED`, `SIMULATED`, `FAILED`, `TAKEN_DOWN`)|
+|`tier`|integer 1-2|—|Filter by tier|
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "posts": [{ "_id": "…", "platform": "X", "status": "GENERATED", "captionEn": "…", "captionHi": "…" }],
+    "pagination": { "page": 1, "limit": 20, "total": 120, "totalPages": 6 },
+    "socialPublishMode": "AUTO"
+  }
+}
+```
+
+**Errors**
+
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+
+---
+
+### `POST /api/admin/social/:postId/publish`
+
+Manually publish a `GENERATED`, `SIMULATED`, or `FAILED` post. Unconfigured platforms transition to `SIMULATED`; `WHATSAPP` stays `GENERATED`; already `POSTED` is idempotent.
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "post": { "_id": "…", "status": "POSTED", "externalId": "…", "externalUrl": "…" }
+  }
+}
+```
+
+**Errors**
+
+- `409 POST_ALREADY_TAKEN_DOWN` — Cannot publish taken-down post
+- `404 POST_NOT_FOUND`
+
+---
+
+### `POST /api/admin/social/:postId/retry`
+
+Retry publishing a post (uses the same atomic transition as publish).
+
+**Response — 200 OK**
+
+Same as publish.
+
+---
+
+### `POST /api/admin/social/:postId/regenerate`
+
+Regenerate copy for a `GENERATED`, `SIMULATED`, or `FAILED` post. Resets status to `GENERATED` and clears `externalId` and `externalUrl`.
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "post": { "_id": "…", "status": "GENERATED", "captionEn": "…", "captionHi": "…" }
+  }
+}
+```
+
+**Errors**
+
+- `409 POST_NOT_REGENERATABLE` — Cannot regenerate `POSTED` or `TAKEN_DOWN` posts
+
+---
+
+### `POST /api/admin/social/:postId/takedown`
+
+Mark a post as `TAKEN_DOWN` and attempt best-effort remote deletion.
+
+**Request Body**
+
+```json
+{ "reason": "Policy violation" }
+```
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "post": { "_id": "…", "status": "TAKEN_DOWN", "takedownReason": "Policy violation" }
+  }
+}
+```
+
+---
+
+### `PATCH /api/admin/social/settings`
+
+Update social publish mode.
+
+**Request Body**
+
+```json
+{ "socialPublishMode": "AUTO" }
+```
+
+|Field|Type|Required|Description|
+|---|---|---|---|
+|`socialPublishMode`|enum|Yes|Either `REVIEW` or `AUTO`|
+
+**Response — 200 OK**
+
+```json
+{
+  "success": true,
+  "data": { "socialPublishMode": "AUTO" }
+}
+```
+
+**Notes**
+
+- `REVIEW`: All posts stay `GENERATED`; admin must manually publish.
+- `AUTO`: Posts are auto-published when tier is reached (or marked `SIMULATED` if platform credentials are unset).
+
+---
+
+## Error Codes (Phase 6 Additions)
+
+|Status|Code|Description|
+|---|---|---|
+|404|`POST_NOT_FOUND`|Social post does not exist|
+|410|`POST_TAKEN_DOWN`|Social post has been taken down|
+|409|`POST_ALREADY_TAKEN_DOWN`|Cannot publish taken down post|
+|409|`POST_NOT_REGENERATABLE`|Cannot regenerate `POSTED` or `TAKEN_DOWN` post|
+|429|`RATE_LIMITED`|Too many click tracking requests|

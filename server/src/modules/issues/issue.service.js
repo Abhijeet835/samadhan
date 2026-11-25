@@ -8,6 +8,7 @@ import WalletTxn from '../wallet/walletTxn.model.js';
 import { chargeWallet, getEffectiveTierThresholds, getSetting } from '../wallet/wallet.service.js';
 import { checkTiers } from '../tiers/tier.service.js';
 import { cancelOpenDispatchForIssue, getEscalationSummary } from '../dispatch/dispatch.service.js';
+import { removeIssuePostsRemote, takedownIssuePosts } from '../social/social.service.js';
 import { ApiError } from '../../utils/apiResponse.js';
 
 /**
@@ -450,6 +451,8 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
         set.fundPaise = 0;
         // Cancel any pending/failed dispatch rows; refunds are untouched.
         await cancelOpenDispatchForIssue(issueId, session);
+        // Social posts come down atomically with the rejection.
+        await takedownIssuePosts(issueId, session);
       }
 
       // Conditional on the current status so concurrent transitions cannot
@@ -482,6 +485,14 @@ export async function transitionIssue(issueId, newStatus, actor, note = '') {
   } finally {
     await session.endSession();
   }
+
+  // Best-effort remote deletes AFTER commit — never block refunds.
+  if (result?.status === 'REJECTED') {
+    void removeIssuePostsRemote(issueId).catch((error) => {
+      console.warn('[issues] Post-rejection remote removal failed:', error.message);
+    });
+  }
+
   return result;
 }
 

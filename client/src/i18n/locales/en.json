@@ -34,9 +34,11 @@
     "profile": "Profile",
     "wallet": "Wallet",
     "feed": "Issues",
+    "trending": "Trending",
     "report": "Report",
     "myActivity": "My Activity",
-    "adminDispatch": "Dispatch"
+    "adminDispatch": "Dispatch",
+    "adminSocial": "Social"
   },
   "hero": {
     "eyebrow": "Civic problems + trusted local help",
@@ -481,5 +483,78 @@
     "saved": "Authority saved",
     "created": "Authority created",
     "saveFailed": "Could not save the authority."
+  },
+  "social": {
+    "officialTitle": "Official Samadhan Campaigns",
+    "officialSubtitle": "Automatically generated and tracked civic outreach for this issue",
+    "posted": "Posted",
+    "simulated": "Simulated",
+    "pendingReview": "Pending review",
+    "aiBadge": "AI draft",
+    "templateBadge": "Template",
+    "viewPost": "View post",
+    "reachTitle": "Share page visits",
+    "reachViews": "{{count}} visits"
+  },
+  "share": {
+    "title": "Help spread the word",
+    "subtitle": "Share this verified civic issue with your community using the ready captions or PNG card.",
+    "langEn": "English",
+    "langHi": "हिंदी",
+    "chars": "{{count}}/280",
+    "copy": "Copy caption",
+    "copied": "Caption copied!",
+    "copyFailed": "Could not copy caption",
+    "downloadCard": "Download PNG card",
+    "downloadFailed": "Could not download PNG card",
+    "openShare": "Share on {{platform}}",
+    "igHint": "Instagram has no direct web share URL — copy the caption and upload the downloaded PNG card.",
+    "cardBrand": "Community-driven civic action",
+    "cardSupporters": "{{count}} community supporters",
+    "cardDisclaimer": "Samadhan is a community prototype — not an official government portal. For emergencies, call 112."
+  },
+  "why": {
+    "title": "Why ₹5 / ₹1?",
+    "body": "Small simulated fees deter spam reports and show real community commitment. If an issue is rejected as invalid, every rupee is refunded.",
+    "official": "Pooled support unlocks official Spotlight social campaigns at ₹200 and formal departmental escalation at ₹500 (₹20 / ₹50 in demo mode).",
+    "note": "100% simulated paise only — no real money is collected or transferred."
+  },
+  "trending": {
+    "title": "Trending Campaigns",
+    "subtitle": "Issues that crossed the Spotlight or Escalation threshold and unlocked community amplification",
+    "cityPlaceholder": "Filter by city...",
+    "loadFailed": "Could not load trending issues.",
+    "empty": "No trending issues yet",
+    "emptyHint": "Issues appear here once their community fund reaches the Spotlight threshold.",
+    "reach": "{{count}} visits"
+  },
+  "adminSocial": {
+    "title": "Social Campaigns",
+    "subtitle": "Review, publish, regenerate, or take down generated social posts (admin only)",
+    "publishMode": "Publish mode",
+    "modes": {
+      "AUTO": "Auto",
+      "REVIEW": "Review"
+    },
+    "modeSaved": "Publish mode set to {{mode}}",
+    "filterStatus": "All statuses",
+    "filterPlatform": "All platforms",
+    "filterTier": "All tiers",
+    "loadFailed": "Could not load social posts.",
+    "empty": "No social posts yet",
+    "clicks": "{{count}} clicks",
+    "publish": "Publish",
+    "publishSuccess": "Post published (or simulated if credentials unset)",
+    "retrySuccess": "Post retried",
+    "regenerate": "Regenerate",
+    "regenerateSuccess": "Post copy regenerated",
+    "takedown": "Take down",
+    "takedownTitle": "Take down social post",
+    "takedownReasonLabel": "Reason",
+    "takedownPlaceholder": "Why is this post being taken down?",
+    "confirmTakedown": "Confirm takedown",
+    "takedownSuccess": "Post taken down",
+    "previewTitle": "Social post preview (EN & HI)",
+    "actionFailed": "Action failed. Please try again."
   }
 }

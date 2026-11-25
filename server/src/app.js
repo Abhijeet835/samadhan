@@ -10,6 +10,8 @@ import issueRoutes from './modules/issues/issue.routes.js';
 import uploadRoutes from './modules/uploads/uploads.routes.js';
 import authorityRoutes from './modules/authorities/authority.routes.js';
 import dispatchRoutes from './modules/dispatch/dispatch.routes.js';
+import { adminRouter as socialAdminRoutes, publicRouter as socialPublicRoutes } from './modules/social/social.routes.js';
+import { ogPage } from './modules/social/og.controller.js';
 import * as dispatchController from './modules/dispatch/dispatch.controller.js';
 import { issueIdParamSchema } from './modules/issues/issue.schema.js';
 import { authenticate } from './middleware/auth.middleware.js';
@@ -50,6 +52,10 @@ app.use('/api/issues', issueRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/admin/authorities', authorityRoutes);
 app.use('/api/admin/dispatch', dispatchRoutes);
+app.use('/api/admin/social', socialAdminRoutes);
+app.use('/api/social', socialPublicRoutes);
+// Public OG share page — deliberately NOT under /api.
+app.get('/i/:id', ogPage);
 app.post(
   '/api/admin/issues/:issueId/recheck-tiers',
   authenticate,

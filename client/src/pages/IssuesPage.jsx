@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight, Inbox, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, Inbox, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import IssueCard from '@/features/global/IssueCard';
@@ -31,12 +31,20 @@ export default function IssuesPage() {
             <h1 className="text-3xl font-bold text-slate-900">{t('issues.feed.title')}</h1>
             <p className="mt-2 text-slate-600">{t('issues.feed.subtitle')}</p>
           </div>
-          <Link to="/report">
-            <Button className="gap-1.5">
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              {t('issues.feed.reportCta')}
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/trending">
+              <Button variant="outline" className="gap-1.5">
+                <Flame className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                {t('nav.trending')}
+              </Button>
+            </Link>
+            <Link to="/report">
+              <Button className="gap-1.5">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                {t('issues.feed.reportCta')}
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="mb-6">

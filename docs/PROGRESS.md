@@ -8,13 +8,13 @@
 
 |Item|Value|
 |---|---|
-|**Phases complete**|0, 1, 2, 3, 4, 5|
-|**Next phase**|6 — Social bundles & trending (Phase 6/8 hook comments mark the plug-in points)|
-|**Server tests**|78/78 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate + 25 tiers/dispatch/cron)|
-|**i18n parity**|`en.json` / `hi.json` 381/381 keys|
+|**Phases complete**|0, 1, 2, 3, 4, 5, 6|
+|**Next phase**|7 — Local verified helpers, connect, reviews & dashboard|
+|**Server tests**|95/95 passing (`cd server && npm test`: 15 wallet + 14 issues + 24 support/duplicate + 25 tiers/dispatch/cron + 17 social)|
+|**i18n parity**|`en.json` / `hi.json` 444/444 keys|
 |**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
 |**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
-|**Git**|Phases 2–3 `f8db51a`, Phase 4 `a40fbd1` on `main`; Phase 5 uncommitted pending manual testing|
+|**Git**|Phases 0–6 committed on `main`|
 
 **If you are a new AI session resuming this project:** read `AGENTS.md` → `docs/CONTEXT.md` → this file → `docs/API.md`. Build only the next phase. Do not refactor earlier phases except to fix a documented bug.
 
@@ -401,12 +401,49 @@
 
 ---
 
-## Phase 6: Social Bundles & Trending (Planned)
+## Phase 6: Social Bundles & Trending ✅
 
-- [ ] Social post generation (X, Instagram, Facebook, WhatsApp)
-- [ ] Share card images
-- [ ] Public OG page for issues
-- [ ] Trending issues feed
+**Completed:** 2026-11-25
+
+### Backend
+
+- [x] Social module `server/src/modules/social/`: `socialPost.model.js` (6 platforms: `X`, `INSTAGRAM`, `FACEBOOK`, `REDDIT`, `WHATSAPP`, `TELEGRAM`; statuses `GENERATED | POSTING | POSTED | SIMULATED | FAILED | TAKEN_DOWN`; unique `(issueId, tier, platform)`), `social.schema.js` (Zod), `social.service.js`, `social.controller.js`, `social.routes.js`, `og.controller.js`, `sanitize.js`, `copywriter.js`, `templates.js`
+- [x] Platform publishers in `server/src/modules/social/publishers/`: `buffer.publisher.js` (X/FB/IG via GraphQL), `telegram.publisher.js` (Bot API `sendPhoto`/`sendMessage` + `deleteMessage`), `reddit.publisher.js` (`upload-post` primary + Reddit OAuth fallback); missing credentials mark posts `SIMULATED` instead of `FAILED`; API secrets redacted in `lastError`
+- [x] Bilingual (EN/HI) deterministic templates across all 8 categories × 2 tiers × 6 platforms (X ≤ 280 chars including share URL, authority handles, `#Samadhan` hashtags, not-official disclaimer, zero money/PII) + optional Gemini AI copywriting layer (`copywriter.js`) with server-side validation & automatic template fallback
+- [x] Hooked `generateBundle({ issueId, tier })` into `tier.service.js checkTiers` (claim winner only, failure-isolated) and additive `social` bundle payload into `dispatch.service.js` n8n webhook
+- [x] Atomic rejection takedown: `transitionIssue(..., 'REJECTED')` marks all `SocialPost` rows `TAKEN_DOWN` inside the rejection transaction and runs `removeIssuePostsRemote` best-effort after commit
+- [x] Public endpoints: `GET /api/issues/trending`, `GET /api/issues/:issueId/social` (and `/api/social/issues/:issueId/social`), `POST /api/social/:postId/click` (IP rate-limited), and root `GET /i/:id` server-rendered Open Graph HTML page (crawler-safe `reachBySource` tracking + `404 noindex` for missing/REJECTED)
+- [x] Admin endpoints (`/api/admin/social`): `GET /` (filters + `socialPublishMode`), `POST /:postId/publish`, `POST /:postId/retry`, `POST /:postId/regenerate`, `POST /:postId/takedown`, `PATCH /settings` (`AUTO` | `REVIEW` stored in `settings.socialPublishMode`)
+- [x] `env.js` and `.env.example` updated with optional Phase 6 env vars
+
+### Frontend
+
+- [x] `OfficialCampaigns` (per-platform status badges, external links, `reachBySource` bar) and `HelpSpread` (platform selector, EN/HI toggle, X 280-char counter, copy caption, share intents, click tracking) integrated into `IssueDetailPage` for tier ≥ 1 issues
+- [x] `ShareCardRender` + `shareCardPng` (`html-to-image` 1080×1080 PNG export using `i18n.getFixedT(lang)`)
+- [x] `WhyRupee` (full section on `LandingPage`, compact disclosure on `ReportPage` and `IssueDetailPage`)
+- [x] `TrendingPage` (`/trending`, public, category + city filters, reach badges, pagination) linked from `Navbar` and `IssuesPage`
+- [x] `AdminSocialPage` (`/admin/social`, admin-only, linked from `Navbar`): `AUTO`/`REVIEW` mode toggle, status/platform/tier filters, EN/HI preview modal, publish/retry/regenerate/takedown actions
+
+### i18n & Tests
+
+- [x] `nav.trending`, `nav.adminSocial`, `social.*`, `share.*`, `why.*`, `trending.*`, `adminSocial.*` added to BOTH `en.json` and `hi.json` — parity 444/444 keys
+- [x] 17 new tests in `server/src/modules/social/social.test.js` (95/95 total passing); `vite build` clean
+
+### Documentation
+
+- [x] Updated `docs/API.md`, `docs/CONTEXT.md`, and `docs/PROGRESS.md`
+
+### Manual Test Checklist (Phase 6)
+
+1. `cd server && npm run demo:on`, then start both servers (`server: npm run dev`, `client: npm run dev`)
+2. Report an issue and support it to ₹20 (Tier 1) → open the issue detail page → verify **Official Samadhan Campaigns** (6 platforms, `SIMULATED` if social keys unset, `GENERATED` for WhatsApp) and **Help spread the word** appear
+3. Toggle EN/HI in the Share widget, copy a caption (verify X ≤ 280 chars), and click **Download PNG card** → 1080×1080 PNG downloads cleanly in the chosen language
+4. Visit `http://localhost:5000/i/<issueId>?s=wa` in a browser → verify Open Graph HTML renders, then reload the issue detail page → `reachBySource` shows `WA 1`
+5. Visit `http://localhost:5173/trending` → Tier 1+ issue appears; test category and city filters
+6. Login as admin (`admin@samadhan.local` / `Admin@12345`) → **Social** (`/admin/social`) → switch publish mode between `Auto` and `Review`, preview EN/HI copy, regenerate a post, and take down one post (verify it disappears from the public issue page)
+7. Admin rejects a Tier 1+ issue → verify all its social posts become `TAKEN_DOWN` and `http://localhost:5000/i/<issueId>` returns 404 with `noindex`
+8. Toggle हिंदी in the header → `/trending`, `/admin/social`, `Why ₹5 / ₹1?`, campaigns, and share widget all render in Hindi
+9. `npm run demo:off` when finished testing; `cd server && npm test` → 95/95 passing
 
 ---
 

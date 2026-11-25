@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   duplicateRadiusM: 100,
   duplicateDays: 30,
   autoCloseDays: 7,
+  socialPublishMode: 'AUTO',
   demoMode: false,
 });
 

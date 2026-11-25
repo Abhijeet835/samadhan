@@ -1,6 +1,8 @@
 import express from 'express';
 
 import * as issueController from './issue.controller.js';
+import * as socialController from '../social/social.controller.js';
+import { trendingQuerySchema } from '../social/social.schema.js';
 import { authenticate, optionalAuth } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import {
@@ -24,6 +26,7 @@ router.get(
   validate(paginationQuerySchema, 'query'),
   issueController.mineSupported,
 );
+router.get('/trending', validate(trendingQuerySchema, 'query'), socialController.trending);
 router.get('/', validate(listIssuesQuerySchema, 'query'), issueController.list);
 router.post('/', authenticate, validate(createIssueSchema), issueController.create);
 
@@ -37,6 +40,7 @@ router.param('issueId', (req, _res, next, value) => {
 });
 
 router.get('/:issueId', optionalAuth, issueController.detail);
+router.get('/:issueId/social', socialController.getIssuePosts);
 router.post('/:issueId/support', authenticate, validate(supportIssueSchema), issueController.support);
 router.get(
   '/:issueId/supporters',

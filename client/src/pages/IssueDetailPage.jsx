@@ -12,6 +12,9 @@ import FundMeter from '@/features/global/FundMeter';
 import SupportPanel from '@/features/global/SupportPanel';
 import SupportersList from '@/features/global/SupportersList';
 import EscalationCard from '@/features/global/EscalationCard';
+import OfficialCampaigns from '@/features/global/OfficialCampaigns';
+import HelpSpread from '@/features/global/HelpSpread';
+import WhyRupee from '@/features/global/WhyRupee';
 import TierBadge from '@/features/global/TierBadge';
 import { useIssueDetail } from '@/features/global/useIssueDetail';
 import { useIssueMeta } from '@/features/global/useIssueMeta';
@@ -104,6 +107,9 @@ export default function IssueDetailPage() {
               </CardContent>
             </Card>
 
+            {issue.tier >= 1 && <OfficialCampaigns issueId={issue._id} tier={issue.tier} />}
+            {issue.tier >= 1 && <HelpSpread issue={issue} />}
+
             <Card>
               <CardHeader>
                 <CardTitle>{t('issues.detail.timelineTitle')}</CardTitle>
@@ -135,6 +141,8 @@ export default function IssueDetailPage() {
             </Card>
 
             {issue.tier >= 2 && <EscalationCard escalation={escalation} language={i18n.language} />}
+
+            <WhyRupee compact />
 
             <Card>
               <CardHeader>

@@ -47,13 +47,13 @@ afterAll(async () => {
 describe('settings collection', () => {
   it('seeds all defaults idempotently and never overwrites existing values', async () => {
     const before = await Settings.find().lean();
-    expect(before.length).toBe(9);
+    expect(before.length).toBe(10);
 
     await Settings.updateOne({ key: 'reportFeePaise' }, { $set: { value: 600 } });
     await ensureDefaultSettings();
 
     const after = await Settings.find().lean();
-    expect(after.length).toBe(9);
+    expect(after.length).toBe(10);
     expect(await getSetting('reportFeePaise')).toBe(600);
 
     // restore for other tests

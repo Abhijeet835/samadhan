@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import DispatchLog, { DISPATCH_STATUSES } from './dispatchLog.model.js';
 import Issue from '../issues/issue.model.js';
 import Authority from '../authorities/authority.model.js';
+import SocialPost from '../social/socialPost.model.js';
 import { renderEscalationEmail } from './dispatch.templates.js';
 import { env } from '../../config/env.js';
 import { ApiError } from '../../utils/apiResponse.js';
@@ -154,6 +155,21 @@ async function executeN8n(log, issue) {
     },
     authority: authority ? { name: authority.nameEn, handles: authority.handles } : null,
   };
+
+  // Additive Phase 6 extension: the official campaign bundle for this tier.
+  const socialPosts = await SocialPost.find({ issueId: log.issueId, tier: log.tier })
+    .select('platform captionEn captionHi imageUrl generationSource')
+    .lean();
+  if (socialPosts.length) {
+    payload.social = {
+      generationSource: socialPosts[0].generationSource,
+      captionsByPlatform: Object.fromEntries(
+        socialPosts.map((p) => [p.platform, { en: p.captionEn, hi: p.captionHi }]),
+      ),
+      imageUrl: socialPosts[0].imageUrl,
+      shareUrl: `${env.publicShareBaseUrl}/i/${log.issueId}?s=tg`,
+    };
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5_000);
