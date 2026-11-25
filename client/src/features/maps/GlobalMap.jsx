@@ -102,7 +102,7 @@ export default function GlobalMap({ category, status, minTier, center }) {
             <Marker
               key={issue._id}
               position={toLatLng(issue.coordinates)}
-              icon={issuePin(issue.category, { tier: issue.tier, label: issue.title })}
+              icon={issuePin(issue.category, { tier: issue.explosionTriggered ? Math.max(1, issue.tier || 1) : issue.tier, label: issue.title })}
               eventHandlers={{ click: () => setSelected(issue) }}
             />
           ))}
@@ -121,7 +121,7 @@ export default function GlobalMap({ category, status, minTier, center }) {
             <div className="flex flex-wrap gap-1.5">
               <CategoryBadge category={selected.category} />
               <StatusBadge status={selected.status} />
-              <TierBadge tier={selected.tier} />
+              <TierBadge explosionTriggered={selected.explosionTriggered} issueType={selected.issueType} />
             </div>
             <button type="button" onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-700" aria-label={t('common.close')}>✕</button>
           </div>

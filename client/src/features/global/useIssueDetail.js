@@ -69,7 +69,7 @@ export function useIssueDetail(issueId) {
   }
 
   /** Apply a support response instantly: fund, count and viewer flags. */
-  function applySupport(result) {
+  function applySupport(result, amountPaise = 0) {
     setData((prev) =>
       prev
         ? {
@@ -78,8 +78,17 @@ export function useIssueDetail(issueId) {
               ...prev.issue,
               fundPaise: result.issue.fundPaise,
               supporterCount: result.issue.supporterCount,
+              explosionTriggered: prev.issue.explosionTriggered || !!result.explosionTriggered,
             },
-            viewer: { ...prev.viewer, hasSupported: true, canSupport: false },
+            viewer: {
+              ...prev.viewer,
+              hasSupported: true,
+              myContributionPaise: (prev.viewer.myContributionPaise ?? 0) + amountPaise,
+              canSupport:
+                prev.issue.issueType === 'POOL_FUNDS'
+                  ? ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(prev.issue.status)
+                  : false,
+            },
           }
         : prev,
     );

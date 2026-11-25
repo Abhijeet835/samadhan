@@ -22,9 +22,11 @@ export function useIssuesFeed(initial = {}) {
   const [issues, setIssues] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async (current) => {
     setLoading(true);
+    setError(false);
     try {
       const params = { page: current.page, limit: current.limit, sort: current.sort };
       if (current.category) params.category = current.category;
@@ -38,6 +40,7 @@ export function useIssuesFeed(initial = {}) {
       setIssues(response.data.issues);
       setPagination(response.data.pagination);
     } catch {
+      setError(true);
       toast.error(t('issues.errors.loadFailed'));
     } finally {
       setLoading(false);
@@ -49,5 +52,5 @@ export function useIssuesFeed(initial = {}) {
     return () => clearTimeout(timer);
   }, [filters, load]);
 
-  return { issues, pagination, filters, setFilters, loading, reload: () => load(filters) };
+  return { issues, pagination, filters, setFilters, loading, error, reload: () => load(filters) };
 }

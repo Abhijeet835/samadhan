@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Marker, Circle, useMapEvents } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import L from 'leaflet';
 
 import MapShell from './MapShell';
@@ -72,6 +73,9 @@ export default function LocationPicker({ value, onChange, radiusKm, height = 300
     try {
       const result = await forwardGeocode(query.trim());
       if (result) place(Number(result.lat), Number(result.lon));
+      else toast.error(t('report.geocodeFailed'));
+    } catch {
+      toast.error(t('report.geocodeFailed'));
     } finally {
       setSearching(false);
     }

@@ -7,6 +7,17 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatPaise } from '@/features/wallet/money';
+import { INDIA_STATES_AND_UTS, getStateLabel } from '@/lib/indiaLocations';
+
+const FALLBACK_STATES = INDIA_STATES_AND_UTS.map((st) => ({
+  code: st.code,
+  type: st.type,
+  state: st.nameEn,
+  stateHi: st.nameHi,
+  total: 0,
+  active: 0,
+  resolved: 0,
+}));
 
 export default function StateExplorerPage() {
   const { t, i18n } = useTranslation();
@@ -14,23 +25,33 @@ export default function StateExplorerPage() {
   const [partners, setPartners] = useState([]);
   const [selectedState, setSelectedState] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
-    Promise.all([
+    setError(false);
+    Promise.allSettled([
       api.get('/issues/stats/locations', { params: selectedState ? { state: selectedState } : {} }),
       api.get('/issues/stats/partners'),
-    ])
-      .then(([locRes, partnerRes]) => {
-        setData(locRes.data);
-        setPartners(partnerRes.data.partners ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [selectedState]);
+    ]).then(([locRes, partnerRes]) => {
+      if (!active) return;
+      if (locRes.status === 'fulfilled') {
+        setData(locRes.value.data);
+      } else {
+        setError(true);
+      }
+      if (partnerRes.status === 'fulfilled') {
+        setPartners(partnerRes.value.data.partners ?? []);
+      }
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [selectedState, reloadTick]);
 
   const overview = data?.overview;
-  const states = data?.states ?? [];
+  const states = data?.states?.length ? data.states : FALLBACK_STATES;
   const areas = data?.areas ?? [];
 
   return (
@@ -63,6 +84,15 @@ export default function StateExplorerPage() {
                 <p className="mt-2 text-2xl font-extrabold tabular-nums text-slate-900">{value}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">
+            <span>{t('issues.errors.loadFailed')}</span>
+            <Button variant="outline" size="sm" onClick={() => setReloadTick((n) => n + 1)}>
+              {t('common.retry')}
+            </Button>
           </div>
         )}
 
@@ -137,7 +167,7 @@ export default function StateExplorerPage() {
             <div className="surface-card p-5">
               <h2 className="flex items-center gap-1.5 text-base font-bold text-slate-900">
                 <MapPin className="h-4 w-4 text-primary" aria-hidden="true" />
-                {selectedState ? t('states.areasIn', { state: selectedState }) : t('states.topAreas')}
+                {selectedState ? t('states.areasIn', { state: getStateLabel(selectedState, i18n.language) }) : t('states.topAreas')}
               </h2>
               {areas.length === 0 ? (
                 <p className="mt-3 text-sm text-slate-500">{t('states.noAreas')}</p>
@@ -147,7 +177,7 @@ export default function StateExplorerPage() {
                     <li key={`${a.state}-${a.city}`} className="flex items-center justify-between py-2.5 text-sm">
                       <div>
                         <p className="font-semibold text-slate-800">{a.city}</p>
-                        <p className="text-xs text-slate-400">{a.state}</p>
+                        <p className="text-xs text-slate-400">{getStateLabel(a.state, i18n.language)}</p>
                       </div>
                       <div className="text-right text-xs">
                         <p className="font-bold text-slate-700">{t('states.issueCount', { count: a.total })}</p>

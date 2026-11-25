@@ -58,7 +58,8 @@ export async function listAdminIssues({ page = 1, limit = 20, q, status, tier, c
     SocialPost.aggregate([{ $match: { issueId: { $in: ids }, status: 'FAILED' } }, { $group: { _id: '$issueId', n: { $sum: 1 } } }]).then(toMap),
   ]);
   const items = rows.map((r) => ({
-    _id: r._id, title: r.title, category: r.category, status: r.status, tier: r.tier,
+    _id: r._id, title: r.title, category: r.category, issueType: r.issueType || 'SOCIAL_EXPLOSION',
+    status: r.status, tier: r.tier, explosionTriggered: !!r.explosionTriggered,
     fundPaise: r.fundPaise, platformCreditPaise: r.platformCreditPaise ?? 0, supporterCount: r.supporterCount,
     flagCount: fc[String(r._id)] ?? 0, city: r.location?.city ?? '', createdAt: r.createdAt,
     reporter: r.reporterId ? { _id: r.reporterId._id, name: r.reporterId.name, email: r.reporterId.email } : null,

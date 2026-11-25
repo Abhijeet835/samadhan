@@ -211,4 +211,13 @@ describe('Dashboard + audit viewer', () => {
     expect((await request(app).patch('/api/admin/audit').set(A()).send({})).status).toBe(404);
     expect((await request(app).delete('/api/admin/audit').set(A())).status).toBe(404);
   });
+
+  it('admin issues list includes issueType and explosionTriggered', async () => {
+    const res = await request(app).get('/api/admin/issues').set(A());
+    expect(res.status).toBe(200);
+    expect(res.body.data.items.length).toBeGreaterThan(0);
+    const first = res.body.data.items[0];
+    expect(typeof first.explosionTriggered).toBe('boolean');
+    expect(['SOCIAL_EXPLOSION', 'POOL_FUNDS']).toContain(first.issueType);
+  });
 });

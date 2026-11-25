@@ -36,11 +36,13 @@ export default function HelperDashboardPage() {
   const requestedTab = searchParams.get('tab');
   const [tab, setTab] = useState(() => (DASHBOARD_TABS.includes(requestedTab) ? requestedTab : 'bookings'));
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actingId, setActingId] = useState(null);
   const [edit, setEdit] = useState(null);
 
   const load = useCallback(async () => {
+    setError(false);
     try {
       const [dashRes, bookRes] = await Promise.all([
         api.get('/helpers/me/dashboard', { params: { limit: 50 } }),
@@ -61,6 +63,7 @@ export default function HelperDashboardPage() {
       setBookingSummary(bookRes.data.summary ?? {});
     } catch (err) {
       if (err.response?.status === 404) navigate('/local/register', { replace: true });
+      else setError(true);
     } finally {
       setLoading(false);
     }
@@ -151,6 +154,17 @@ export default function HelperDashboardPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (error && !data) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-12">
+        <div className="surface-card border-dashed py-12 text-center">
+          <p className="text-slate-600">{t('local.loadFailed')}</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={load}>{t('common.retry')}</Button>
+        </div>
+      </div>
+    );
   }
 
   if (loading || !data) {

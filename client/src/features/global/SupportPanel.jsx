@@ -71,7 +71,7 @@ export default function SupportPanel({ issue, viewer, onSupported, onReload }) {
         toast.success(isPool ? t('support.poolSuccess') : t('support.success'));
       }
       setOpen(false);
-      onSupported?.(res.data);
+      onSupported?.(res.data, fee);
       if (res.data.explosionTriggered || res.data.tierUnlocked?.length) onReload?.();
     } catch (err) {
       const code = err.response?.data?.error?.code;

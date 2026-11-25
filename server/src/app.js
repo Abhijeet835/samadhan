@@ -26,9 +26,8 @@ import { errorHandler, notFound } from './middleware/error.middleware.js';
 
 const app = express();
 
-const allowedOrigins = env.clientUrl
-  .split(',')
-  .map((origin) => origin.trim())
+const allowedOrigins = (env.clientOrigins?.length ? env.clientOrigins : String(env.clientUrl ?? '').split(','))
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
 app.disable('x-powered-by');
@@ -38,8 +37,9 @@ app.use(helmet());
 app.use(
   cors({
     origin(origin, callback) {
+      const normalized = origin ? origin.trim().replace(/\/+$/, '') : origin;
       // Requests without an Origin header (curl, server-to-server) are allowed.
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!normalized || allowedOrigins.includes(normalized)) {
         return callback(null, true);
       }
       return callback(null, false);

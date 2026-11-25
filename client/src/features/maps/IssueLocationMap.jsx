@@ -16,7 +16,7 @@ export default function IssueLocationMap({ issue }) {
   return (
     <div>
       <MapShell center={[lat, lng]} zoom={15} height={220} scrollWheelZoom={false}>
-        <Marker position={toLatLng(coords)} icon={issuePin(issue.category, { tier: issue.tier, label: issue.title })} />
+        <Marker position={toLatLng(coords)} icon={issuePin(issue.category, { tier: issue.explosionTriggered ? Math.max(1, issue.tier || 1) : issue.tier, label: issue.title })} />
       </MapShell>
       <a href={osm} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-block text-xs font-semibold text-blue-700 hover:underline">
         {t('maps.openInOsm')} ↗

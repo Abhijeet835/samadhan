@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { CalendarCheck, Handshake, HeartHandshake, Inbox, Megaphone } from 'lucide-react';
@@ -20,12 +20,23 @@ const TABS = [
 
 export default function MyActivityPage() {
   const { t, i18n } = useTranslation();
-  const [tab, setTab] = useState('bookings');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = useState(() => (TABS.some((x) => x.key === requestedTab) ? requestedTab : 'bookings'));
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (requestedTab && TABS.some((x) => x.key === requestedTab) && requestedTab !== tab) {
+      setLoading(true);
+      setRows([]);
+      setPagination(null);
+      setTab(requestedTab);
+    }
+  }, [requestedTab, tab]);
 
   const load = useCallback(async (tabKey, page, append = false) => {
     if (append) setLoadingMore(true);
@@ -79,6 +90,7 @@ export default function MyActivityPage() {
                 setRows([]);
                 setPagination(null);
                 setTab(key);
+                setSearchParams({ tab: key }, { replace: true });
               }}
               className={cn('tab-pill whitespace-nowrap', tab === key ? 'tab-pill-active' : 'tab-pill-idle')}
             >

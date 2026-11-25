@@ -8,11 +8,18 @@ const toPort = (value, fallback) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const rawClientUrl = (process.env.CLIENT_URL ?? 'http://localhost:5173').trim();
+const clientOrigins = rawClientUrl
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
 export const env = Object.freeze({
   nodeEnv: process.env.NODE_ENV?.trim() || 'development',
   port: toPort(process.env.PORT, 5000),
   mongoUri: (process.env.MONGO_URI ?? '').trim(),
-  clientUrl: (process.env.CLIENT_URL ?? 'http://localhost:5173').trim(),
+  clientUrl: clientOrigins[0] ?? 'http://localhost:5173',
+  clientOrigins: Object.freeze(clientOrigins),
   jwtSecret: process.env.JWT_SECRET || 'samadhan_dev_jwt_secret_9847239847',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   adminEmail: (process.env.ADMIN_EMAIL ?? 'admin@samadhan.local').trim(),
@@ -64,10 +71,10 @@ export function validateProductionEnv() {
   if (!env.jwtSecret || env.jwtSecret.length < 32 || /example|dev_jwt|samadhan_dev/i.test(env.jwtSecret)) {
     problems.push('JWT_SECRET must be ≥32 chars and not an example/default value');
   }
-  for (const url of env.clientUrl.split(',').map((s) => s.trim()).filter(Boolean)) {
+  for (const url of env.clientOrigins) {
     try { new URL(url); } catch { problems.push(`CLIENT_URL contains an invalid URL: ${url}`); }
   }
-  if (!env.clientUrl) problems.push('CLIENT_URL is required');
+  if (!env.clientOrigins.length) problems.push('CLIENT_URL is required');
   if (!env.publicShareBaseUrl) problems.push('PUBLIC_SHARE_BASE_URL is required');
   return problems;
 }

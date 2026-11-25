@@ -264,8 +264,8 @@ export default function HelperRegisterPage() {
               </div>
               <Suspense fallback={<div className="h-[240px] animate-pulse rounded-xl bg-slate-100" />}>
                 <LocationPicker
-                  value={{ lat: coords?.lat, lng: coords?.lng, radiusKm: Number(form.radiusKm) }}
-                  showRadius
+                  value={{ lat: coords?.lat, lng: coords?.lng }}
+                  radiusKm={Number(form.radiusKm)}
                   onChange={(p) => {
                     if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) setCoords({ lat: p.lat, lng: p.lng });
                     const patch = {};

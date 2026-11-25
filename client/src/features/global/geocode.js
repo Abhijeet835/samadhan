@@ -1,3 +1,5 @@
+import { normalizeIndianState } from '@/lib/indiaLocations';
+
 const NOMINATIM = 'https://nominatim.openstreetmap.org';
 
 export async function reverseGeocode(lat, lng, lang = 'en') {
@@ -22,7 +24,7 @@ export function parseAddressParts(result) {
   return {
     address: street || a.suburb || a.neighbourhood || fallback,
     city: a.city || a.town || a.village || a.municipality || a.county || '',
-    state: a.state || '',
+    state: normalizeIndianState(a.state || ''),
     pincode: /^\d{6}$/.test(a.postcode || '') ? a.postcode : '',
   };
 }

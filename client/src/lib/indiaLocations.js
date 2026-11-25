@@ -40,19 +40,32 @@ export const INDIA_STATES_AND_UTS = Object.freeze([
   { code: 'PY', type: 'UT', nameEn: 'Puducherry', nameHi: 'पुडुचेरी', cities: [{ nameEn: 'Puducherry', nameHi: 'पुडुचेरी', lat: 11.9416, lng: 79.8083, pincode: '605001' }] },
 ]);
 
+const STATE_LOOKUP = new Map();
+for (const entry of INDIA_STATES_AND_UTS) {
+  STATE_LOOKUP.set(entry.code.toLowerCase(), entry);
+  STATE_LOOKUP.set(entry.nameEn.toLowerCase(), entry);
+  STATE_LOOKUP.set(entry.nameHi.toLowerCase(), entry);
+}
+STATE_LOOKUP.set('nct of delhi', STATE_LOOKUP.get('dl'));
+STATE_LOOKUP.set('new delhi', STATE_LOOKUP.get('dl'));
+STATE_LOOKUP.set('orissa', STATE_LOOKUP.get('od'));
+STATE_LOOKUP.set('pondicherry', STATE_LOOKUP.get('py'));
+
+export function normalizeIndianState(input) {
+  if (!input) return '';
+  const key = String(input).trim().toLowerCase();
+  return STATE_LOOKUP.get(key)?.nameEn ?? String(input).trim();
+}
+
 export function getStateLabel(stateNameEn, lang = 'en') {
   if (!stateNameEn) return '';
-  const match = INDIA_STATES_AND_UTS.find(
-    (s) => s.nameEn.toLowerCase() === String(stateNameEn).trim().toLowerCase() || s.code.toLowerCase() === String(stateNameEn).trim().toLowerCase(),
-  );
+  const match = STATE_LOOKUP.get(String(stateNameEn).trim().toLowerCase());
   if (!match) return stateNameEn;
   return lang === 'hi' ? match.nameHi : match.nameEn;
 }
 
 export function getCitiesForState(stateNameEn) {
   if (!stateNameEn) return [];
-  const match = INDIA_STATES_AND_UTS.find(
-    (s) => s.nameEn.toLowerCase() === String(stateNameEn).trim().toLowerCase() || s.code.toLowerCase() === String(stateNameEn).trim().toLowerCase(),
-  );
+  const match = STATE_LOOKUP.get(String(stateNameEn).trim().toLowerCase());
   return match ? match.cities : [];
 }

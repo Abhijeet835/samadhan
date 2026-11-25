@@ -25,7 +25,7 @@ export default function IssuesPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const initialState = searchParams.get('state') || '';
-  const { issues, pagination, filters, setFilters, loading } = useIssuesFeed({ state: initialState });
+  const { issues, pagination, filters, setFilters, loading, error, reload } = useIssuesFeed({ state: initialState });
   const [view, setView] = useState('list');
 
   useEffect(() => {
@@ -90,6 +90,11 @@ export default function IssuesPage() {
 
             {loading ? (
               <FeedSkeleton />
+            ) : error ? (
+              <div className="surface-card flex flex-col items-center gap-3 border-dashed py-14 text-center">
+                <p className="text-sm font-medium text-slate-600">{t('issues.errors.loadFailed')}</p>
+                <Button variant="outline" size="sm" onClick={reload}>{t('common.retry')}</Button>
+              </div>
             ) : issues.length === 0 ? (
               <div className="surface-card flex flex-col items-center gap-2 border-dashed py-16 text-center">
                 <Inbox className="h-10 w-10 text-slate-300" aria-hidden="true" />

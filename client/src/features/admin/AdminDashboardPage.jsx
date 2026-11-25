@@ -15,6 +15,7 @@ export default function AdminDashboardPage() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -23,11 +24,11 @@ export default function AdminDashboardPage() {
       .then((res) => active && setData(res.data))
       .catch(() => active && setError(true));
     return () => { active = false; };
-  }, [days]);
+  }, [days, reloadTick]);
 
   const money = (p) => formatPaise(p ?? 0, i18n.language);
 
-  if (error) return <div className="rounded-xl border border-dashed border-slate-300 bg-white py-12 text-center"><p className="text-slate-600">{t('admin.loadFailed')}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => setDays((d) => d)}>{t('common.retry')}</Button></div>;
+  if (error) return <div className="rounded-xl border border-dashed border-slate-300 bg-white py-12 text-center"><p className="text-slate-600">{t('admin.loadFailed')}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => setReloadTick((n) => n + 1)}>{t('common.retry')}</Button></div>;
   if (!data) return <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-200" />)}</div>;
 
   const kpis = [

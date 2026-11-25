@@ -30,16 +30,39 @@ export default function AdminSettingsPage() {
   const [draft, setDraft] = useState({});
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   async function load() {
-    const [s, c] = await Promise.all([api.get('/admin/settings'), api.get('/admin/categories')]);
-    setSettings(s.data.settings); setDemoThresholds(s.data.demoThresholds); setSocialMode(s.data.socialPublishMode);
-    setCategories(c.data);
-    setDraft(Object.fromEntries(s.data.settings.map((x) => [x.key, x.value])));
+    setLoading(true);
+    setError(false);
+    try {
+      const [s, c] = await Promise.all([api.get('/admin/settings'), api.get('/admin/categories')]);
+      setSettings(s.data.settings); setDemoThresholds(s.data.demoThresholds); setSocialMode(s.data.socialPublishMode);
+      setCategories(c.data);
+      setDraft(Object.fromEntries(s.data.settings.map((x) => [x.key, x.value])));
+    } catch {
+      setError(true);
+      toast.error(t('admin.loadFailed'));
+    } finally {
+      setLoading(false);
+    }
   }
-  useEffect(() => { load().catch(() => toast.error(t('admin.loadFailed'))); }, []);
+  useEffect(() => { load(); }, []);
 
   const demoOn = draft.demoMode === true;
+
+  if (loading && settings.length === 0) {
+    return <div className="h-96 animate-pulse rounded-xl bg-slate-200" aria-label={t('common.loading')} />;
+  }
+  if (error && settings.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white py-12 text-center">
+        <p className="text-slate-600">{t('admin.loadFailed')}</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={load}>{t('common.retry')}</Button>
+      </div>
+    );
+  }
 
   function requestSave() {
     const changed = {};

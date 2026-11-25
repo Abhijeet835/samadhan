@@ -81,6 +81,15 @@ describe('GET /api/issues/map', () => {
 
     const cat = await request(app).get('/api/issues/map?category=WATER');
     expect(cat.body.data.items.every((i) => i.category === 'WATER')).toBe(true);
+    expect(typeof res.body.data.items[0].explosionTriggered).toBe('boolean');
+    expect(res.body.data.items[0].issueType).toBe('SOCIAL_EXPLOSION');
+  });
+
+  it('CORS normalizes trailing slashes on origins and rejects unknown origins', async () => {
+    const ok = await request(app).get('/api/health').set('Origin', 'http://localhost:5173/');
+    expect(ok.headers['access-control-allow-origin']).toBe('http://localhost:5173/');
+    const blocked = await request(app).get('/api/health').set('Origin', 'https://evil.example');
+    expect(blocked.headers['access-control-allow-origin']).toBeUndefined();
   });
 });
 

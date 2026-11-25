@@ -527,7 +527,7 @@ export async function getIssuesMap({ west, south, east, north, category, status,
   const docs = await Issue.find(filter)
     .sort({ tier: -1, fundPaise: -1 })
     .limit(cappedLimit + 1)
-    .select('_id title category status tier fundPaise supporterCount location.coordinates location.city photos')
+    .select('_id title category issueType status tier explosionTriggered fundPaise supporterCount location.coordinates location.city photos')
     .lean();
 
   const truncated = docs.length > cappedLimit;
@@ -535,8 +535,10 @@ export async function getIssuesMap({ west, south, east, north, category, status,
     _id: d._id,
     title: d.title,
     category: d.category,
+    issueType: d.issueType || 'SOCIAL_EXPLOSION',
     status: d.status,
     tier: d.tier,
+    explosionTriggered: !!d.explosionTriggered,
     fundPaise: d.fundPaise,
     supporterCount: d.supporterCount,
     coordinates: d.location?.coordinates,
@@ -1050,7 +1052,21 @@ export async function getLocationStats({ state } = {}) {
   const byStateMap = new Map();
   for (const row of stateAgg) {
     const norm = normalizeIndianState(row._id);
-    if (norm) byStateMap.set(norm.toLowerCase(), row);
+    if (!norm) continue;
+    const key = norm.toLowerCase();
+    const prev = byStateMap.get(key);
+    if (!prev) {
+      byStateMap.set(key, { ...row });
+    } else {
+      prev.total += row.total;
+      prev.active += row.active;
+      prev.resolved += row.resolved;
+      prev.thresholdReached += row.thresholdReached;
+      prev.socialExplosion += row.socialExplosion;
+      prev.poolFunds += row.poolFunds;
+      prev.totalFundPaise += row.totalFundPaise;
+      prev.totalSupporters += row.totalSupporters;
+    }
   }
 
   const states = INDIA_STATES_AND_UTS.map((st) => {

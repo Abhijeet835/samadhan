@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { LOCAL_CATEGORIES } from '@/features/local/constants';
+import { LOCAL_CATEGORIES, normalizeLocalCat } from '@/features/local/constants';
 
 const STATUS_STYLES = {
   VERIFIED: 'bg-green-50 text-green-700 ring-green-200',
@@ -138,7 +138,7 @@ export default function AdminHelpersPage() {
                       </p>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {helper.categories.map((c) => (
-                          <span key={c} className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700">{t(`local.categories.${c}`)}</span>
+                          <span key={c} className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700">{t(`local.categories.${normalizeLocalCat(c)}`)}</span>
                         ))}
                       </div>
                       {helper.rejectionReason && <p className="mt-1 text-xs text-red-600">{helper.rejectionReason}</p>}
