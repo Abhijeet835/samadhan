@@ -29,7 +29,7 @@ const { testEnv } = vi.hoisted(() => ({
     publicShareBaseUrl: 'http://localhost:5000',
     defaultSocialImageUrl: '',
     geminiApiKey: '',
-    geminiModel: 'gemini-2.5-flash-lite',
+    geminiModel: 'gemini-3.5-flash-lite',
     bufferApiKey: '',
     bufferChannelX: '',
     bufferChannelFb: '',
