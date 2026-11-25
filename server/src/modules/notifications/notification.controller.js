@@ -20,8 +20,7 @@ export async function unreadCount(req, res, next) {
 
 export async function read(req, res, next) {
   try {
-    const notification = await notificationService.markRead(req.user.userId, req.params.id);
-    return sendSuccess(res, { notification });
+    return sendSuccess(res, await notificationService.markRead(req.user.userId, req.params.id));
   } catch (error) {
     return next(error);
   }

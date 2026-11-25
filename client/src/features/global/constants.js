@@ -1,14 +1,27 @@
-// Mirrors the backend enums in server/src/modules/issues/issue.model.js
 export const ISSUE_CATEGORIES = [
-  'ROAD',
-  'GARBAGE',
-  'WATER',
-  'STREETLIGHT',
-  'SEWAGE',
-  'ELECTRICITY',
-  'PARK',
+  'BROKEN_ROADS',
+  'SEWAGE_DRAINAGE',
+  'GARBAGE_MANAGEMENT',
+  'WATER_ELECTRICITY',
+  'STRAY_ANIMALS',
+  'EDUCATION_INFRA',
+  'PUBLIC_FACILITIES',
   'OTHER',
 ];
+
+export const LEGACY_ISSUE_CATEGORY_MAP = {
+  ROAD: 'BROKEN_ROADS',
+  SEWAGE: 'SEWAGE_DRAINAGE',
+  GARBAGE: 'GARBAGE_MANAGEMENT',
+  WATER: 'WATER_ELECTRICITY',
+  ELECTRICITY: 'WATER_ELECTRICITY',
+  STREETLIGHT: 'PUBLIC_FACILITIES',
+  PARK: 'PUBLIC_FACILITIES',
+};
+
+export function normalizeCategoryKey(category) {
+  return LEGACY_ISSUE_CATEGORY_MAP[category] ?? category ?? 'OTHER';
+}
 
 export const ISSUE_STATUSES = [
   'ACTIVE',
@@ -18,3 +31,7 @@ export const ISSUE_STATUSES = [
   'CLOSED',
   'REJECTED',
 ];
+
+export const ISSUE_TYPES = ['SOCIAL_EXPLOSION', 'POOL_FUNDS'];
+export const IMPORTANCE_LEVELS = ['SMALL', 'MEDIUM', 'LARGE'];
+export const SOLVER_TYPES = ['GOVERNMENT', 'NGO', 'PRIVATE_ORG', 'COMMUNITY'];

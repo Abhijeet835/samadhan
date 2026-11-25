@@ -92,8 +92,51 @@ export async function support(req, res, next) {
       issueId: req.params.issueId,
       userId: req.user.userId,
       idempotencyKey: req.body.idempotencyKey,
+      amountPaise: req.body.amountPaise,
     });
     return sendSuccess(res, result, result.idempotent ? 200 : 201);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function locationStats(req, res, next) {
+  try {
+    return sendSuccess(res, await issueService.getLocationStats({ state: req.query.state }));
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function partners(_req, res, next) {
+  try {
+    return sendSuccess(res, await issueService.getPartnerRecognitions());
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function resolveIssue(req, res, next) {
+  try {
+    const issue = await issueService.recordResolution({
+      issueId: req.params.issueId,
+      actor: { userId: req.user.userId, role: req.user.role },
+      data: req.body,
+    });
+    return sendSuccess(res, { issue });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function addUtilization(req, res, next) {
+  try {
+    const issue = await issueService.addFundUtilization({
+      issueId: req.params.issueId,
+      actor: { userId: req.user.userId, role: req.user.role },
+      data: req.body,
+    });
+    return sendSuccess(res, { issue });
   } catch (error) {
     return next(error);
   }

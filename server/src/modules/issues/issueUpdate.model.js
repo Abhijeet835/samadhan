@@ -18,7 +18,7 @@ const issueUpdateSchema = new mongoose.Schema(
     // Phase 8B: non-status timeline events.
     kind: {
       type: String,
-      enum: ['STATUS', 'AUTHORITY_ASSIGNED', 'AUTHORITY_REPLY', 'PLATFORM_CREDIT'],
+      enum: ['STATUS', 'AUTHORITY_ASSIGNED', 'AUTHORITY_REPLY', 'PLATFORM_CREDIT', 'RESOLUTION_RECORDED', 'FUND_UTILIZATION'],
       default: 'STATUS',
     },
     authorityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Authority', default: null },
@@ -31,7 +31,7 @@ const issueUpdateSchema = new mongoose.Schema(
     },
     actorRole: {
       type: String,
-      enum: ['CITIZEN', 'HELPER', 'ADMIN', 'SYSTEM'],
+      enum: ['CONSUMER', 'PROVIDER', 'CITIZEN', 'HELPER', 'ADMIN', 'SYSTEM'],
       required: true,
     },
     note: {

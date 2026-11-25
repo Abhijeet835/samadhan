@@ -58,6 +58,7 @@ const makeFundedCitizen = async (balancePaise = 15000) => {
 beforeAll(async () => {
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   await mongoose.connect(replSet.getUri());
+  await Issue.init();
   await ensureDefaultSettings();
 });
 
@@ -171,7 +172,7 @@ describe('GET /api/issues — feed', () => {
     expect(ids).toContain(created[0]);
 
     const roads = await request(app).get('/api/issues?category=ROAD');
-    expect(roads.body.data.issues.every((i) => i.category === 'ROAD')).toBe(true);
+    expect(roads.body.data.issues.every((i) => i.category === 'BROKEN_ROADS')).toBe(true);
     expect(roads.body.data.pagination.limit).toBe(12);
 
     const page1 = await request(app).get('/api/issues?page=1&limit=1');
@@ -186,7 +187,7 @@ describe('GET /api/issues — feed', () => {
     const res = await request(app).get('/api/issues/meta');
     expect(res.status).toBe(200);
     expect(res.body.data.reportFeePaise).toBe(500);
-    expect(res.body.data.categories).toContain('STREETLIGHT');
+    expect(res.body.data.categories).toContain('PUBLIC_FACILITIES');
   });
 });
 

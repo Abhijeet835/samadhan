@@ -12,6 +12,7 @@ import authorityRoutes from './modules/authorities/authority.routes.js';
 import dispatchRoutes from './modules/dispatch/dispatch.routes.js';
 import { adminRouter as socialAdminRoutes, publicRouter as socialPublicRoutes } from './modules/social/social.routes.js';
 import helperRoutes, { adminRouter as helperAdminRoutes } from './modules/helpers/helper.routes.js';
+import bookingRoutes from './modules/bookings/booking.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import internalRoutes from './modules/internal/internal.routes.js';
@@ -60,6 +61,7 @@ app.use('/api/admin/social', socialAdminRoutes);
 app.use('/api/admin/helpers', helperAdminRoutes);
 app.use('/api/social', socialPublicRoutes);
 app.use('/api/helpers', helperRoutes);
+app.use('/api/bookings', bookingRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/internal', internalRoutes);
 // Public OG share page — deliberately NOT under /api.

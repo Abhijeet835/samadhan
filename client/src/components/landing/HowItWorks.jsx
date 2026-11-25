@@ -1,75 +1,85 @@
-import { Camera, Megaphone, Users } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CalendarCheck, CheckCircle2, Flame, Globe, HandCoins, Megaphone, Search, Store } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-
-const STEP_STYLES = [
-  {
-    Icon: Camera,
-    accent: 'bg-primary/10 text-primary',
-    number: '01',
-  },
-  {
-    Icon: Users,
-    accent: 'bg-civic-amber/10 text-civic-amber',
-    number: '02',
-  },
-  {
-    Icon: Megaphone,
-    accent: 'bg-helper/10 text-helper',
-    number: '03',
-  },
-];
 
 export default function HowItWorks() {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState('global');
 
-  const steps = STEP_STYLES.map((step, index) => ({
-    ...step,
-    title: t(`how.step${index + 1}Title`),
-    text: t(`how.step${index + 1}Text`),
-  }));
+  const globalSteps = [
+    { icon: Megaphone, title: t('landing.walkthrough.global.step1Title'), text: t('landing.walkthrough.global.step1Text') },
+    { icon: HandCoins, title: t('landing.walkthrough.global.step2Title'), text: t('landing.walkthrough.global.step2Text') },
+    { icon: Flame, title: t('landing.walkthrough.global.step3Title'), text: t('landing.walkthrough.global.step3Text') },
+  ];
+
+  const localSteps = [
+    { icon: Search, title: t('landing.walkthrough.local.step1Title'), text: t('landing.walkthrough.local.step1Text') },
+    { icon: CalendarCheck, title: t('landing.walkthrough.local.step2Title'), text: t('landing.walkthrough.local.step2Text') },
+    { icon: CheckCircle2, title: t('landing.walkthrough.local.step3Title'), text: t('landing.walkthrough.local.step3Text') },
+  ];
+
+  const steps = activeTab === 'global' ? globalSteps : localSteps;
 
   return (
-    <section id="how-it-works" className="scroll-mt-24 border-y border-border/60 bg-card/60">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="outline" className="border-primary/15 bg-primary/5 text-primary">
-            {t('how.eyebrow')}
-          </Badge>
-          <h2 className="mt-4 text-balance text-3xl font-extrabold tracking-tight sm:text-4xl">
-            {t('how.title')}
+    <section id="how-it-works" className="py-16 sm:py-20">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            {t('landing.walkthrough.title')}
           </h2>
-          <p className="mt-3 text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
-            {t('how.subtitle')}
+          <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600 sm:text-base">
+            {t('landing.walkthrough.subtitle')}
           </p>
+
+          <div className="mx-auto mt-7 max-w-sm">
+            <div className="tab-bar" role="tablist" aria-label={t('landing.walkthrough.title')}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'global'}
+                onClick={() => setActiveTab('global')}
+                className={cn('tab-pill', activeTab === 'global' ? 'bg-blue-600 text-white shadow-sm' : 'tab-pill-idle')}
+              >
+                <Globe className="h-4 w-4" aria-hidden="true" />
+                {t('nav.global')}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'local'}
+                onClick={() => setActiveTab('local')}
+                className={cn('tab-pill', activeTab === 'local' ? 'bg-teal-700 text-white shadow-sm' : 'tab-pill-idle')}
+              >
+                <Store className="h-4 w-4" aria-hidden="true" />
+                {t('nav.local')}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
-          {steps.map(({ Icon, accent, number, title, text }) => (
-            <article
-              key={number}
-              className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-soft"
-            >
-              <span
-                className="pointer-events-none absolute right-5 top-4 text-5xl font-extrabold tracking-tighter text-slate-100 transition-colors group-hover:text-primary/10"
-                aria-hidden="true"
-              >
-                {number}
-              </span>
-
-              <div className={cn('grid h-11 w-11 place-items-center rounded-xl', accent)}>
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </div>
-
-              <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                {t('how.stepLabel', { number })}
-              </p>
-              <h3 className="mt-2 text-lg font-bold tracking-tight">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
-            </article>
-          ))}
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <article key={step.title} className="surface-card p-6">
+                <div className="flex items-center justify-between">
+                  <span
+                    className={cn(
+                      'grid h-11 w-11 place-items-center rounded-xl',
+                      activeTab === 'global' ? 'bg-blue-50 text-blue-600' : 'bg-teal-50 text-teal-700',
+                    )}
+                  >
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="text-xs font-bold text-slate-400">0{index + 1}</span>
+                </div>
+                <h3 className="mt-4 text-lg font-bold text-slate-900">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.text}</p>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>

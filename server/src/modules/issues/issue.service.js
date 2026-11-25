@@ -1,16 +1,25 @@
 import mongoose from 'mongoose';
 
-import Issue, { ISSUE_CATEGORIES } from './issue.model.js';
+import Issue, { ISSUE_CATEGORIES, normalizeIssueCategory } from './issue.model.js';
 import IssueSupport from './issueSupport.model.js';
 import IssueUpdate from './issueUpdate.model.js';
 import IssueFlag from '../admin/issueFlag.model.js';
+import User from '../users/user.model.js';
 import Wallet from '../wallet/wallet.model.js';
 import WalletTxn from '../wallet/walletTxn.model.js';
-import { chargeWallet, getEffectiveTierThresholds, getSetting } from '../wallet/wallet.service.js';
+import {
+  chargeWallet,
+  getEffectiveTierThresholds,
+  getImportanceThresholds,
+  getPoolGoalDefaults,
+  getSetting,
+} from '../wallet/wallet.service.js';
 import { checkTiers } from '../tiers/tier.service.js';
 import { cancelOpenDispatchForIssue, getEscalationSummary } from '../dispatch/dispatch.service.js';
 import { removeIssuePostsRemote, takedownIssuePosts } from '../social/social.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
+import { normalizeRole } from '../../utils/jwt.util.js';
+import { INDIA_STATES_AND_UTS, normalizeIndianState } from '../../constants/indiaLocations.js';
 import { ApiError } from '../../utils/apiResponse.js';
 
 /**
@@ -63,23 +72,37 @@ export async function findDuplicate({ category, coordinates }) {
   ]);
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  const [hit] = await Issue.aggregate([
-    {
-      $geoNear: {
-        near: { type: 'Point', coordinates },
-        distanceField: 'distanceM',
-        spherical: true,
-        key: 'location',
-        maxDistance: radiusM,
-        query: {
-          category,
-          status: { $nin: ['CLOSED', 'REJECTED'] },
-          createdAt: { $gte: cutoff },
+  const runNear = () =>
+    Issue.aggregate([
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates },
+          distanceField: 'distanceM',
+          spherical: true,
+          key: 'location',
+          maxDistance: radiusM,
+          query: {
+            category,
+            status: { $nin: ['CLOSED', 'REJECTED'] },
+            createdAt: { $gte: cutoff },
+          },
         },
       },
-    },
-    { $limit: 1 },
-  ]);
+      { $limit: 1 },
+    ]);
+
+  let hit;
+  try {
+    [hit] = await runNear();
+  } catch (error) {
+    // Ensure 2dsphere index is ready on cold starts/tests before failing.
+    if (error?.code === 291) {
+      await Issue.init();
+      [hit] = await runNear();
+    } else {
+      throw error;
+    }
+  }
 
   return hit ?? null;
 }
@@ -142,7 +165,22 @@ export async function createIssue({ reporterId, data }) {
     }
   }
 
-  const reportFeePaise = await getSetting('reportFeePaise');
+  const [reportFeePaise, importanceThresholds, poolGoalDefaults, reporterDoc] = await Promise.all([
+    getSetting('reportFeePaise'),
+    getImportanceThresholds(),
+    getPoolGoalDefaults(),
+    User.findById(reporterId).select('role').lean(),
+  ]);
+
+  const issueType = issueData.issueType || 'SOCIAL_EXPLOSION';
+  const importance = issueData.importance || 'MEDIUM';
+  const fundingGoalPaise = issueType === 'POOL_FUNDS'
+    ? (issueData.fundingGoalPaise > 0 ? issueData.fundingGoalPaise : (poolGoalDefaults[importance] ?? 250000))
+    : 0;
+  const thresholdTarget = issueType === 'POOL_FUNDS'
+    ? fundingGoalPaise
+    : (importanceThresholds[importance] ?? 15);
+  const actorRole = normalizeRole(reporterDoc?.role || 'CONSUMER');
 
   let created;
   const session = await mongoose.startSession();
@@ -152,6 +190,10 @@ export async function createIssue({ reporterId, data }) {
         [
           {
             ...issueData,
+            issueType,
+            importance,
+            thresholdTarget,
+            fundingGoalPaise,
             location: { type: 'Point', coordinates: issueData.location.coordinates, ...pickAddress(issueData.location) },
             reporterId,
             status: 'ACTIVE',
@@ -184,7 +226,7 @@ export async function createIssue({ reporterId, data }) {
             fromStatus: null,
             toStatus: 'ACTIVE',
             actorId: reporterId,
-            actorRole: 'CITIZEN',
+            actorRole,
             note: '',
           },
         ],
@@ -217,24 +259,22 @@ export async function createIssue({ reporterId, data }) {
 }
 
 function pickAddress(location) {
-  const { address, city, state, pincode } = location;
-  return { address, city, state, pincode };
+  const { country = 'India', address, city, state, pincode } = location;
+  return { country, address, city, state: normalizeIndianState(state), pincode };
 }
 
 /**
- * Paid +1 support. ONE transaction: verify supportable + not already
- * supported → debit supportFeePaise (settings) → SUPPORT_FEE ledger row →
- * IssueSupport row (stores amountPaise so rejection refunds stay exact) →
- * conditional $inc on fundPaise/supporterCount guarded by the current status.
+ * Support a Social Explosion issue (+1 support) OR contribute funds to a Pool
+ * Funds issue. Atomic wallet debit + IssueSupport upsert + conditional counter update.
  */
-export async function supportIssue({ issueId, userId, idempotencyKey }) {
+export async function supportIssue({ issueId, userId, idempotencyKey, amountPaise: requestedAmount }) {
   const supportFeePaise = await getSetting('supportFeePaise');
 
   const replayResult = async () => {
     const txn = await WalletTxn.findOne({ idempotencyKey }).lean();
     if (!txn) return null;
     const sameRequest =
-      txn.type === 'SUPPORT_FEE' &&
+      ['SUPPORT_FEE', 'POOL_CONTRIBUTION'].includes(txn.type) &&
       String(txn.userId) === String(userId) &&
       String(txn.issueId ?? '') === String(issueId);
     if (!sameRequest) {
@@ -246,12 +286,16 @@ export async function supportIssue({ issueId, userId, idempotencyKey }) {
     }
     const [support, issue, wallet] = await Promise.all([
       IssueSupport.findOne({ issueId, userId }).lean(),
-      Issue.findById(issueId).select('fundPaise supporterCount').lean(),
+      Issue.findById(issueId).select('fundPaise supporterCount explosionTriggered thresholdTarget fundingGoalPaise').lean(),
       Wallet.findOne({ userId }).lean(),
     ]);
     return {
       support,
-      issue: { fundPaise: issue?.fundPaise ?? 0, supporterCount: issue?.supporterCount ?? 0 },
+      issue: {
+        fundPaise: issue?.fundPaise ?? 0,
+        supporterCount: issue?.supporterCount ?? 0,
+        explosionTriggered: !!issue?.explosionTriggered,
+      },
       wallet: { balancePaise: wallet?.balancePaise ?? 0 },
       idempotent: true,
     };
@@ -277,30 +321,47 @@ export async function supportIssue({ issueId, userId, idempotencyKey }) {
         );
       }
 
+      const isPool = issue.issueType === 'POOL_FUNDS';
+      const chargeAmount = isPool && Number.isInteger(requestedAmount) && requestedAmount >= 100
+        ? requestedAmount
+        : supportFeePaise;
+      const txnType = isPool ? 'POOL_CONTRIBUTION' : 'SUPPORT_FEE';
+
       const existing = await IssueSupport.findOne({ issueId, userId }).session(session);
-      if (existing) {
+      if (existing && !isPool) {
         throw new ApiError('You have already supported this issue.', 409, 'ALREADY_SUPPORTED');
       }
 
       const { wallet } = await chargeWallet({
         userId,
-        type: 'SUPPORT_FEE',
-        amountPaise: -supportFeePaise,
+        type: txnType,
+        amountPaise: -chargeAmount,
         issueId,
         idempotencyKey,
         session,
       });
 
-      const [support] = await IssueSupport.create(
-        [{ issueId, userId, amountPaise: supportFeePaise, isReporter: false }],
-        { session },
-      );
+      let support;
+      if (existing && isPool) {
+        support = await IssueSupport.findOneAndUpdate(
+          { _id: existing._id },
+          { $inc: { amountPaise: chargeAmount } },
+          { returnDocument: 'after', session },
+        );
+      } else {
+        [support] = await IssueSupport.create(
+          [{ issueId, userId, amountPaise: chargeAmount, isReporter: false }],
+          { session },
+        );
+      }
 
-      // Conditional on the current status so a concurrent transition cannot
-      // corrupt the fund counters.
+      const incFields = existing
+        ? { fundPaise: chargeAmount }
+        : { fundPaise: chargeAmount, supporterCount: 1 };
+
       const updated = await Issue.findOneAndUpdate(
         { _id: issueId, status: issue.status },
-        { $inc: { fundPaise: supportFeePaise, supporterCount: 1 } },
+        { $inc: incFields },
         { returnDocument: 'after', session },
       );
       if (!updated) {
@@ -320,8 +381,6 @@ export async function supportIssue({ issueId, userId, idempotencyKey }) {
     });
   } catch (error) {
     if (error?.code === 11000) {
-      // Lost a race: either the same key was double-tapped (return the
-      // winner's result) or the (issueId, userId) support row already exists.
       const raced = await replayResult();
       if (raced) return raced;
       const support = await IssueSupport.findOne({ issueId, userId }).lean();
@@ -330,8 +389,6 @@ export async function supportIssue({ issueId, userId, idempotencyKey }) {
       }
     }
     if (error instanceof ApiError && error.code === 'ALREADY_SUPPORTED') {
-      // A transaction retry may land here after the same-key winner committed;
-      // a replay of that key must return the idempotent result, not a 409.
       const raced = await replayResult();
       if (raced) return raced;
     }
@@ -340,30 +397,64 @@ export async function supportIssue({ issueId, userId, idempotencyKey }) {
     await session.endSession();
   }
 
-  // AFTER the payment commits — never inside the transaction. The HTTP
-  // response waits only for the atomic claims, not for SMTP/n8n side effects.
   let tierUnlocked = [];
+  let explosionTriggered = false;
   try {
-    const { claimedTiers } = await checkTiers(issueId);
-    tierUnlocked = claimedTiers;
+    const check = await checkTiers(issueId);
+    tierUnlocked = check.claimedTiers;
+    explosionTriggered = check.explosionClaimed;
   } catch (error) {
     console.error('[tiers] check failed after support:', error.message);
   }
 
-  return { ...result, tierUnlocked };
+  return { ...result, tierUnlocked, explosionTriggered };
+}
+
+function escRegex(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
- * Public feed with filters, search and sorting. REJECTED spam never appears.
+ * Public feed with filters (category, status, issueType, importance, state, city,
+ * resolvedOnly, thresholdReached, q) and sorting. REJECTED spam never appears.
  */
 export async function listIssues(query) {
-  const { page = 1, limit = 12, category, status, q, sort = 'latest' } = query;
+  const {
+    page = 1,
+    limit = 12,
+    category,
+    status,
+    issueType,
+    importance,
+    state,
+    city,
+    resolvedOnly,
+    thresholdReached,
+    q,
+    sort = 'latest',
+  } = query;
 
   const filter = { status: { $ne: 'REJECTED' } };
-  if (category) filter.category = category;
+  if (category) filter.category = normalizeIssueCategory(category);
   if (status && status !== 'REJECTED') filter.status = status;
+  if (issueType) filter.issueType = issueType;
+  if (importance) filter.importance = importance;
+  if (state) filter['location.state'] = new RegExp(`^${escRegex(normalizeIndianState(state))}$`, 'i');
+  if (city) filter['location.city'] = new RegExp(escRegex(city), 'i');
+  if (resolvedOnly === 'true') filter.status = { $in: ['RESOLVED', 'CLOSED'] };
+  else if (resolvedOnly === 'false') filter.status = { $in: ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'] };
+  if (thresholdReached === 'true') filter.explosionTriggered = true;
+  else if (thresholdReached === 'false') filter.explosionTriggered = { $ne: true };
+
   if (q?.trim()) {
-    filter.$text = { $search: q.trim() };
+    const rx = new RegExp(escRegex(q.trim()), 'i');
+    filter.$or = [
+      { title: rx },
+      { description: rx },
+      { 'location.city': rx },
+      { 'location.state': rx },
+      { 'resolution.organizationName': rx },
+    ];
   }
 
   const sortMap = {
@@ -486,6 +577,8 @@ export async function getIssueDetail(issueId, viewer) {
   const reporterId = String(issue.reporterId?._id ?? issue.reporterId);
   const windowDays = await getSetting('autoCloseDays');
   const escalation = await getEscalationSummary(issueId);
+  const isPool = issue.issueType === 'POOL_FUNDS';
+  const canSupport = !!viewer && SUPPORTABLE_STATUSES.includes(issue.status) && (isPool || !viewerSupport);
   return {
     issue,
     updates,
@@ -495,7 +588,8 @@ export async function getIssueDetail(issueId, viewer) {
       isReporter: viewer ? reporterId === String(viewer.userId) : false,
       isAdmin,
       hasSupported: !!viewerSupport,
-      canSupport: !!viewer && SUPPORTABLE_STATUSES.includes(issue.status) && !viewerSupport,
+      myContributionPaise: viewerSupport?.amountPaise ?? 0,
+      canSupport,
       canReopen:
         issue.status === 'RESOLVED' &&
         reporterId === String(viewer?.userId) &&
@@ -732,7 +826,7 @@ export async function listMyIssues(userId, { page = 1, limit = 20 } = {}) {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .select('title category status fundPaise supporterCount photos createdAt')
+      .select('title category issueType importance thresholdTarget fundingGoalPaise explosionTriggered status fundPaise supporterCount location resolution photos createdAt')
       .lean(),
     Issue.countDocuments(filter),
   ]);
@@ -756,7 +850,7 @@ export async function listMySupported(userId, { page = 1, limit = 20 } = {}) {
       .limit(limit)
       .populate({
         path: 'issueId',
-        select: 'title category status fundPaise supporterCount photos createdAt',
+        select: 'title category issueType importance thresholdTarget fundingGoalPaise explosionTriggered status fundPaise supporterCount location resolution photos createdAt',
       })
       .lean(),
     IssueSupport.countDocuments(filter),
@@ -776,22 +870,290 @@ export async function listMySupported(userId, { page = 1, limit = 20 } = {}) {
 }
 
 /**
- * Public metadata for the report wizard: categories, fees and thresholds —
- * all from settings (demoMode-aware).
+ * Public metadata for the report wizard & filters: categories, dynamic
+ * importance thresholds, pool goals, Indian States + UTs, fees.
  */
 export async function getIssueMeta() {
-  const [reportFeePaise, supportFeePaise, thresholds, disabled] = await Promise.all([
+  const [reportFeePaise, supportFeePaise, thresholds, importanceThresholds, poolGoalDefaults, disabled] = await Promise.all([
     getSetting('reportFeePaise'),
     getSetting('supportFeePaise'),
     getEffectiveTierThresholds(),
+    getImportanceThresholds(),
+    getPoolGoalDefaults(),
     getSetting('disabledIssueCategories'),
   ]);
   const disabledSet = new Set(disabled ?? []);
   return {
     categories: ISSUE_CATEGORIES.filter((c) => !disabledSet.has(c)),
+    issueTypes: ['SOCIAL_EXPLOSION', 'POOL_FUNDS'],
+    importanceLevels: ['SMALL', 'MEDIUM', 'LARGE'],
     reportFeePaise,
     supportFeePaise,
     thresholds,
+    importanceThresholds,
+    poolGoalDefaults,
+    states: INDIA_STATES_AND_UTS,
     maxPhotos: 3,
+  };
+}
+
+/**
+ * Record who solved an issue (Government dept, NGO, or Private organization),
+ * resolution details, impact summary, and partner recognition/promotion.
+ */
+export async function recordResolution({ issueId, actor, data }) {
+  const issue = await Issue.findById(issueId);
+  if (!issue) throw new ApiError('Issue not found.', 404, 'ISSUE_NOT_FOUND');
+  if (issue.status === 'REJECTED' || issue.status === 'CLOSED') {
+    throw new ApiError('Cannot update resolution on a closed or rejected issue.', 409, 'INVALID_TRANSITION');
+  }
+
+  const isAdmin = actor.role === 'ADMIN';
+  const isReporter = String(issue.reporterId) === String(actor.userId);
+  if (!isAdmin && !isReporter) {
+    throw new ApiError('Only the reporter or an admin can record resolution details.', 403, 'FORBIDDEN');
+  }
+
+  const now = new Date();
+  const resolutionPayload = {
+    solverType: data.solverType,
+    organizationName: data.organizationName,
+    departmentOrLead: data.departmentOrLead ?? '',
+    resolutionDetails: data.resolutionDetails,
+    impactSummary: data.impactSummary ?? '',
+    resolvedAt: now,
+    promotion: {
+      enabled: data.promotion?.enabled ?? (data.solverType === 'NGO' || data.solverType === 'PRIVATE_ORG'),
+      tagline: data.promotion?.tagline ?? '',
+      badgeText: data.promotion?.badgeText ?? '',
+      websiteUrl: data.promotion?.websiteUrl ?? '',
+    },
+  };
+
+  if (['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(issue.status)) {
+    await transitionIssue(issueId, 'RESOLVED', actor, `${data.organizationName}: ${data.resolutionDetails.slice(0, 200)}`);
+  }
+
+  const updated = await Issue.findByIdAndUpdate(
+    issueId,
+    { $set: { resolution: resolutionPayload, resolvedAt: issue.resolvedAt ?? now } },
+    { returnDocument: 'after' },
+  ).lean();
+
+  await IssueUpdate.create({
+    issueId,
+    kind: 'RESOLUTION_RECORDED',
+    fromStatus: issue.status,
+    toStatus: updated.status,
+    actorId: actor.userId,
+    actorRole: normalizeRole(actor.role),
+    note: `${data.organizationName} (${data.solverType}): ${data.resolutionDetails.slice(0, 240)}`,
+  });
+
+  return updated;
+}
+
+/**
+ * Add an itemized fund utilization entry and optional responsible party on a POOL_FUNDS issue.
+ */
+export async function addFundUtilization({ issueId, actor, data }) {
+  const issue = await Issue.findById(issueId);
+  if (!issue) throw new ApiError('Issue not found.', 404, 'ISSUE_NOT_FOUND');
+  const isAdmin = actor.role === 'ADMIN';
+  const isReporter = String(issue.reporterId) === String(actor.userId);
+  if (!isAdmin && !isReporter) {
+    throw new ApiError('Forbidden.', 403, 'FORBIDDEN');
+  }
+
+  const update = {
+    $push: { fundUtilization: { item: data.item, amountPaise: data.amountPaise, note: data.note ?? '', addedAt: new Date() } },
+  };
+  if (data.responsibleParty) {
+    update.$set = {
+      responsibleParty: {
+        type: data.responsibleParty.type ?? issue.responsibleParty?.type ?? 'NGO',
+        name: data.responsibleParty.name ?? issue.responsibleParty?.name ?? '',
+        contactRole: data.responsibleParty.contactRole ?? issue.responsibleParty?.contactRole ?? '',
+        note: data.responsibleParty.note ?? issue.responsibleParty?.note ?? '',
+      },
+    };
+  }
+
+  const updated = await Issue.findByIdAndUpdate(issueId, update, { returnDocument: 'after' }).lean();
+  await IssueUpdate.create({
+    issueId,
+    kind: 'FUND_UTILIZATION',
+    amountPaise: data.amountPaise,
+    actorId: actor.userId,
+    actorRole: normalizeRole(actor.role),
+    note: `${data.item}: ₹${(data.amountPaise / 100).toFixed(0)}`,
+  });
+  return updated;
+}
+
+/**
+ * State-wise & area-wise statistics across all 28 States + 8 UTs of India.
+ */
+export async function getLocationStats({ state } = {}) {
+  const [stateAgg, cityAgg, totals] = await Promise.all([
+    Issue.aggregate([
+      { $match: { status: { $ne: 'REJECTED' } } },
+      {
+        $group: {
+          _id: '$location.state',
+          total: { $sum: 1 },
+          active: { $sum: { $cond: [{ $in: ['$status', ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS']] }, 1, 0] } },
+          resolved: { $sum: { $cond: [{ $in: ['$status', ['RESOLVED', 'CLOSED']] }, 1, 0] } },
+          thresholdReached: { $sum: { $cond: [{ $eq: ['$explosionTriggered', true] }, 1, 0] } },
+          socialExplosion: { $sum: { $cond: [{ $eq: ['$issueType', 'SOCIAL_EXPLOSION'] }, 1, 0] } },
+          poolFunds: { $sum: { $cond: [{ $eq: ['$issueType', 'POOL_FUNDS'] }, 1, 0] } },
+          totalFundPaise: { $sum: '$fundPaise' },
+          totalSupporters: { $sum: '$supporterCount' },
+        },
+      },
+    ]),
+    Issue.aggregate([
+      {
+        $match: {
+          status: { $ne: 'REJECTED' },
+          ...(state ? { 'location.state': normalizeIndianState(state) } : {}),
+        },
+      },
+      {
+        $group: {
+          _id: { state: '$location.state', city: '$location.city' },
+          total: { $sum: 1 },
+          resolved: { $sum: { $cond: [{ $in: ['$status', ['RESOLVED', 'CLOSED']] }, 1, 0] } },
+          thresholdReached: { $sum: { $cond: [{ $eq: ['$explosionTriggered', true] }, 1, 0] } },
+          totalFundPaise: { $sum: '$fundPaise' },
+        },
+      },
+      { $sort: { total: -1, totalFundPaise: -1 } },
+      { $limit: 40 },
+    ]),
+    Issue.aggregate([
+      { $match: { status: { $ne: 'REJECTED' } } },
+      {
+        $group: {
+          _id: null,
+          totalIssues: { $sum: 1 },
+          resolvedCount: { $sum: { $cond: [{ $in: ['$status', ['RESOLVED', 'CLOSED']] }, 1, 0] } },
+          thresholdReachedCount: { $sum: { $cond: [{ $eq: ['$explosionTriggered', true] }, 1, 0] } },
+          socialExplosionCount: { $sum: { $cond: [{ $eq: ['$issueType', 'SOCIAL_EXPLOSION'] }, 1, 0] } },
+          poolFundsCount: { $sum: { $cond: [{ $eq: ['$issueType', 'POOL_FUNDS'] }, 1, 0] } },
+          totalFundPaise: { $sum: '$fundPaise' },
+        },
+      },
+    ]),
+  ]);
+
+  const byStateMap = new Map();
+  for (const row of stateAgg) {
+    const norm = normalizeIndianState(row._id);
+    if (norm) byStateMap.set(norm.toLowerCase(), row);
+  }
+
+  const states = INDIA_STATES_AND_UTS.map((st) => {
+    const s = byStateMap.get(st.nameEn.toLowerCase());
+    return {
+      code: st.code,
+      type: st.type,
+      state: st.nameEn,
+      stateHi: st.nameHi,
+      total: s?.total ?? 0,
+      active: s?.active ?? 0,
+      resolved: s?.resolved ?? 0,
+      thresholdReached: s?.thresholdReached ?? 0,
+      socialExplosion: s?.socialExplosion ?? 0,
+      poolFunds: s?.poolFunds ?? 0,
+      totalFundPaise: s?.totalFundPaise ?? 0,
+      totalSupporters: s?.totalSupporters ?? 0,
+    };
+  }).sort((a, b) => b.total - a.total || a.state.localeCompare(b.state));
+
+  const areas = cityAgg
+    .filter((a) => a._id?.city)
+    .map((a) => ({
+      state: a._id.state || 'Other',
+      city: a._id.city,
+      total: a.total,
+      resolved: a.resolved,
+      thresholdReached: a.thresholdReached,
+      totalFundPaise: a.totalFundPaise,
+    }));
+
+  const ov = totals[0] ?? {
+    totalIssues: 0,
+    resolvedCount: 0,
+    thresholdReachedCount: 0,
+    socialExplosionCount: 0,
+    poolFundsCount: 0,
+    totalFundPaise: 0,
+  };
+
+  return {
+    overview: {
+      ...ov,
+      statesWithIssues: states.filter((s) => s.total > 0).length,
+      totalStatesAndUts: INDIA_STATES_AND_UTS.length,
+    },
+    states,
+    areas,
+  };
+}
+
+/**
+ * Public recognition & promotion feed for NGOs, Private Organizations & Departments
+ * that have solved civic issues.
+ */
+export async function getPartnerRecognitions() {
+  const solved = await Issue.find({
+    status: { $in: ['RESOLVED', 'CLOSED'] },
+    'resolution.organizationName': { $exists: true, $ne: '' },
+  })
+    .sort({ resolvedAt: -1 })
+    .select('title category issueType location resolution fundPaise supporterCount resolvedAt')
+    .lean();
+
+  const grouped = new Map();
+  for (const iss of solved) {
+    const orgName = iss.resolution.organizationName;
+    const key = `${iss.resolution.solverType}:${orgName.toLowerCase()}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        organizationName: orgName,
+        solverType: iss.resolution.solverType,
+        departmentOrLead: iss.resolution.departmentOrLead || '',
+        promotion: iss.resolution.promotion || {},
+        solvedCount: 0,
+        states: new Set(),
+        recentIssues: [],
+      });
+    }
+    const entry = grouped.get(key);
+    entry.solvedCount += 1;
+    if (iss.location?.state) entry.states.add(iss.location.state);
+    if (iss.resolution.promotion?.enabled) {
+      entry.promotion = iss.resolution.promotion;
+    }
+    if (entry.recentIssues.length < 3) {
+      entry.recentIssues.push({
+        _id: iss._id,
+        title: iss.title,
+        category: iss.category,
+        city: iss.location?.city,
+        state: iss.location?.state,
+        impactSummary: iss.resolution.impactSummary,
+        resolutionDetails: iss.resolution.resolutionDetails,
+        resolvedAt: iss.resolvedAt,
+      });
+    }
+  }
+
+  return {
+    partners: [...grouped.values()].map((p) => ({
+      ...p,
+      states: [...p.states],
+    })),
   };
 }

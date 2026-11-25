@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { BadgeIndianRupee, Building2, MessageSquare } from 'lucide-react';
+import { BadgeIndianRupee, Building2, CheckCircle2, MessageSquare, Receipt } from 'lucide-react';
 
 import { formatTxnDate } from '@/features/wallet/money';
 
@@ -7,6 +7,8 @@ const KIND_META = {
   PLATFORM_CREDIT: { icon: BadgeIndianRupee, color: 'bg-teal-500', label: 'issues.timeline.platformCredit' },
   AUTHORITY_REPLY: { icon: MessageSquare, color: 'bg-violet-500', label: 'issues.timeline.authorityReply' },
   AUTHORITY_ASSIGNED: { icon: Building2, color: 'bg-blue-500', label: 'issues.timeline.authorityAssigned' },
+  RESOLUTION_RECORDED: { icon: CheckCircle2, color: 'bg-emerald-600', label: 'issues.timeline.resolutionRecorded' },
+  FUND_UTILIZATION: { icon: Receipt, color: 'bg-teal-600', label: 'issues.timeline.fundUtilization' },
 };
 
 export default function Timeline({ updates }) {

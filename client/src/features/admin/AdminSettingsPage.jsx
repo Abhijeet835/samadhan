@@ -9,7 +9,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
-const PAISE_KEYS = ['reportFeePaise', 'supportFeePaise', 'tier1Paise', 'tier2Paise', 'signupCreditPaise', 'platformCreditMaxPaise'];
+const PAISE_KEYS = [
+  'reportFeePaise',
+  'supportFeePaise',
+  'tier1Paise',
+  'tier2Paise',
+  'smallPoolGoalPaise',
+  'mediumPoolGoalPaise',
+  'largePoolGoalPaise',
+  'signupCreditPaise',
+  'platformCreditMaxPaise',
+];
 
 export default function AdminSettingsPage() {
   const { t } = useTranslation();
@@ -96,7 +106,7 @@ export default function AdminSettingsPage() {
                 {categories[kind].map((c) => (
                   <button key={c.key} type="button" onClick={() => toggleCategory(kind, c.key, !c.enabled)}
                     className={cn('rounded-full px-3 py-1 text-xs font-semibold', c.enabled ? 'bg-teal-50 text-teal-700 ring-1 ring-teal-200' : 'bg-slate-200 text-slate-400 line-through')}>
-                    {t(`issues.categories.${c.key}`, c.key)}
+                    {t(kind === 'local' ? `local.categories.${c.key}` : `issues.categories.${c.key}`, c.key)}
                   </button>
                 ))}
               </div>

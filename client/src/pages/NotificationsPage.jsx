@@ -1,17 +1,35 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Inbox } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Bell, Inbox, Loader2 } from 'lucide-react';
 
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatPaise, formatTxnDate } from '@/features/wallet/money';
+import { useNotifications } from '@/features/notifications/useNotifications';
 
-const ISSUE_TYPES = ['TIER_1_REACHED', 'TIER_2_REACHED', 'ISSUE_STATUS_CHANGED', 'ISSUE_REJECTED', 'ISSUE_AUTHORITY_REPLY', 'ISSUE_PLATFORM_CREDIT'];
+const ISSUE_TYPES = [
+  'TIER_1_REACHED',
+  'TIER_2_REACHED',
+  'EXPLOSION_TRIGGERED',
+  'POOL_GOAL_REACHED',
+  'ISSUE_STATUS_CHANGED',
+  'ISSUE_REJECTED',
+  'ISSUE_AUTHORITY_REPLY',
+  'ISSUE_PLATFORM_CREDIT',
+];
 
 function deepLink(n) {
   if (ISSUE_TYPES.includes(n.type)) return `/issues/${n.payload?.issueId}`;
+  if (n.type === 'HELPER_NEW_CONNECT') return '/local/dashboard?tab=contacts';
+  if (n.type === 'HELPER_NEW_REVIEW') return '/local/dashboard?tab=reviews';
+  if (n.type === 'BOOKING_CREATED') return '/local/dashboard?tab=bookings';
+  if (n.type === 'BOOKING_UPDATED') return '/my-activity?tab=bookings';
+  if (n.type === 'HELPER_VERIFIED' || n.type === 'HELPER_REJECTED' || n.type === 'HELPER_REVERIFICATION_REQUIRED' || n.type === 'HELPER_AUTO_HIDDEN' || n.type === 'HELPER_UNHIDDEN') {
+    return '/local/dashboard?tab=profile';
+  }
   return '/local/dashboard';
 }
 
@@ -24,6 +42,7 @@ function isToday(date) {
 export default function NotificationsPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { unreadCount, markAllRead, markRead, markingAll } = useNotifications();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -34,7 +53,9 @@ export default function NotificationsPage() {
     if (!append) setLoading(true);
     setError(false);
     try {
-      const res = await api.get('/notifications', { params: { page, limit: 20, ...(unreadOnly ? { unreadOnly: 'true' } : {}) } });
+      const res = await api.get('/notifications', {
+        params: { page, limit: 20, ...(unreadOnly ? { unreadOnly: 'true' } : {}) },
+      });
       setItems((prev) => (append ? [...prev, ...res.data.items] : res.data.items));
       setPagination(res.data.pagination);
     } catch {
@@ -48,41 +69,77 @@ export default function NotificationsPage() {
 
   async function open(n) {
     if (!n.readAt) {
-      api.patch(`/notifications/${n._id}/read`).catch(() => {});
-      setItems((prev) => prev.map((x) => (x._id === n._id ? { ...x, readAt: new Date().toISOString() } : x)));
+      markRead(n._id).catch(() => {});
+      setItems((prev) =>
+        prev.map((x) => (x._id === n._id ? { ...x, readAt: new Date().toISOString() } : x)),
+      );
     }
     navigate(deepLink(n));
   }
 
   async function markAll() {
-    await api.post('/notifications/read-all').catch(() => {});
-    setItems((prev) => prev.map((x) => ({ ...x, readAt: x.readAt ?? new Date().toISOString() })));
+    if (markingAll || unreadCount === 0) return;
+    try {
+      await markAllRead();
+      setItems((prev) => prev.map((x) => ({ ...x, readAt: x.readAt ?? new Date().toISOString() })));
+      if (unreadOnly) {
+        setItems([]);
+        setPagination(null);
+      }
+      toast.success(t('notifications.markedAll'));
+    } catch {
+      toast.error(t('notifications.markFailed'));
+    }
   }
 
-  const groups = { today: items.filter((n) => isToday(n.createdAt)), earlier: items.filter((n) => !isToday(n.createdAt)) };
+  const groups = {
+    today: items.filter((n) => isToday(n.createdAt)),
+    earlier: items.filter((n) => !isToday(n.createdAt)),
+  };
 
   function renderText(n) {
     const key = `notifications.types.${n.type}`;
     const params = { ...n.payload };
     if (params.refundPaise != null) params.refund = formatPaise(params.refundPaise, i18n.language);
     if (params.amountPaise != null) params.amount = formatPaise(params.amountPaise, i18n.language);
+    if (params.fromStatus) params.fromStatus = t(`issues.statuses.${params.fromStatus}`, { defaultValue: params.fromStatus });
+    if (params.toStatus) params.toStatus = t(`issues.statuses.${params.toStatus}`, { defaultValue: params.toStatus });
+    if (params.status) params.status = t(`bookings.statuses.${params.status}`, { defaultValue: params.status });
     const text = t(key, params);
     return text === key ? t('notifications.generic') : text;
   }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="flex items-center gap-2 text-3xl font-bold text-slate-900">
           <Bell className="h-7 w-7 text-blue-600" aria-hidden="true" />
           {t('notifications.title')}
+          {unreadCount > 0 && (
+            <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white" aria-hidden="true">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </h1>
-        <Button variant="outline" size="sm" onClick={markAll}>{t('notifications.markAll')}</Button>
+        {unreadCount > 0 && (
+          <Button variant="outline" size="sm" onClick={markAll} disabled={markingAll} className="shrink-0 gap-1.5">
+            {markingAll && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+            {t('notifications.markAll')}
+          </Button>
+        )}
       </div>
 
       <div className="mt-4 flex gap-1 rounded-xl bg-slate-100 p-1">
         {[false, true].map((u) => (
-          <button key={String(u)} type="button" onClick={() => setUnreadOnly(u)} className={cn('flex-1 rounded-lg px-3 py-1.5 text-sm font-medium', unreadOnly === u ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>
+          <button
+            key={String(u)}
+            type="button"
+            onClick={() => setUnreadOnly(u)}
+            className={cn(
+              'flex-1 rounded-lg px-3 py-1.5 text-sm font-medium',
+              unreadOnly === u ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500',
+            )}
+          >
             {u ? t('notifications.unread') : t('notifications.all')}
           </button>
         ))}
@@ -109,7 +166,14 @@ export default function NotificationsPage() {
                 <ul className="space-y-2">
                   {groups[g].map((n) => (
                     <li key={n._id}>
-                      <button type="button" onClick={() => open(n)} className={cn('block w-full rounded-xl border p-3 text-left transition-shadow hover:shadow-md', n.readAt ? 'border-slate-200 bg-white' : 'border-blue-200 bg-blue-50/60')}>
+                      <button
+                        type="button"
+                        onClick={() => open(n)}
+                        className={cn(
+                          'block w-full rounded-xl border p-3 text-left transition-shadow hover:shadow-md',
+                          n.readAt ? 'border-slate-200 bg-white' : 'border-blue-200 bg-blue-50/60',
+                        )}
+                      >
                         <p className="text-sm text-slate-800">{renderText(n)}</p>
                         <p className="mt-1 text-xs text-slate-400">{formatTxnDate(n.createdAt, i18n.language)}</p>
                       </button>

@@ -56,7 +56,7 @@ export default function AdminIssueDetailPage() {
     <div>
       <Link to="/admin/issues" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" />{t('admin.tabs.issues')}</Link>
       <Card><CardContent className="pt-5">
-        <div className="flex flex-wrap items-center gap-2"><StatusBadge status={issue.status} /><TierBadge tier={issue.tier} /></div>
+        <div className="flex flex-wrap items-center gap-2"><StatusBadge status={issue.status} /><TierBadge explosionTriggered={issue.explosionTriggered} issueType={issue.issueType} /></div>
         <h1 className="mt-2 text-xl font-bold text-slate-900">{issue.title}</h1>
         <p className="text-xs text-slate-500">{issue.reporterId?.name} · {issue.reporterId?.email}</p>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">

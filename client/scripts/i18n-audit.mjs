@@ -41,12 +41,12 @@ const usedKeys = new Set();
 for (const m of source.matchAll(/\bt\(\s*['"]([a-zA-Z0-9_.]+)['"]/g)) usedKeys.add(m[1]);
 // dynamic key families validated by enumerating value sets
 const dynamicAllowlist = {
-  'issues.categories.': ['ROAD', 'GARBAGE', 'WATER', 'STREETLIGHT', 'SEWAGE', 'ELECTRICITY', 'PARK', 'OTHER'],
+  'issues.categories.': ['BROKEN_ROADS', 'SEWAGE_DRAINAGE', 'GARBAGE_MANAGEMENT', 'WATER_ELECTRICITY', 'STRAY_ANIMALS', 'EDUCATION_INFRA', 'PUBLIC_FACILITIES', 'OTHER'],
   'issues.statuses.': ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'],
-  'local.categories.': ['PLUMBER', 'ELECTRICIAN', 'CAB_DRIVER', 'HOUSE_CLEANING', 'LOCKSMITH', 'CARPENTER', 'PAINTER', 'PACKERS_MOVERS', 'GROCERY_DELIVERY'],
-  'notifications.types.': ['TIER_1_REACHED', 'TIER_2_REACHED', 'ISSUE_STATUS_CHANGED', 'ISSUE_REJECTED', 'ISSUE_AUTHORITY_REPLY', 'ISSUE_PLATFORM_CREDIT', 'HELPER_VERIFIED', 'HELPER_REJECTED', 'HELPER_AUTO_HIDDEN', 'HELPER_UNHIDDEN', 'HELPER_REVERIFICATION_REQUIRED', 'HELPER_NEW_REVIEW'],
+  'local.categories.': ['CAB_AUTO', 'GENERAL_STORE', 'GARAGE_MECHANIC', 'SWEETS_BAKERY', 'PLUMBER_ELECTRICIAN', 'APPLIANCE_REPAIR', 'OTHER_LOCAL'],
+  'notifications.types.': ['TIER_1_REACHED', 'TIER_2_REACHED', 'EXPLOSION_TRIGGERED', 'POOL_GOAL_REACHED', 'ISSUE_STATUS_CHANGED', 'ISSUE_REJECTED', 'ISSUE_AUTHORITY_REPLY', 'ISSUE_PLATFORM_CREDIT', 'HELPER_VERIFIED', 'HELPER_REJECTED', 'HELPER_AUTO_HIDDEN', 'HELPER_UNHIDDEN', 'HELPER_REVERIFICATION_REQUIRED', 'HELPER_NEW_REVIEW', 'HELPER_NEW_CONNECT', 'BOOKING_CREATED', 'BOOKING_UPDATED'],
   'errors.': [...enMap.keys()].filter((k) => k.startsWith('errors.')).map((k) => k.slice(7)),
-  'admin.settingKeys.': ['reportFeePaise', 'supportFeePaise', 'tier1Paise', 'tier2Paise', 'signupCreditPaise', 'duplicateRadiusM', 'duplicateDays', 'autoCloseDays', 'platformCreditMaxPaise', 'demoMode'],
+  'admin.settingKeys.': ['reportFeePaise', 'supportFeePaise', 'tier1Paise', 'tier2Paise', 'smallIssueThreshold', 'mediumIssueThreshold', 'largeIssueThreshold', 'platformCommissionPercent', 'signupCreditPaise', 'duplicateRadiusM', 'duplicateDays', 'autoCloseDays', 'platformCreditMaxPaise', 'demoMode'],
   'issues.flag.reasons.': ['SPAM', 'DUPLICATE', 'INAPPROPRIATE', 'WRONG_LOCATION', 'OTHER'],
 };
 for (const [prefix, values] of Object.entries(dynamicAllowlist)) {

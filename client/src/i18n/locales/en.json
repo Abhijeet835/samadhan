@@ -15,7 +15,10 @@
     "loading": "Loading...",
     "close": "Close",
     "retry": "Retry",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "viewDetails": "View details",
+    "save": "Save",
+    "cancel": "Cancel"
   },
   "nav": {
     "main": "Main navigation",
@@ -39,18 +42,20 @@
     "myActivity": "My Activity",
     "adminDispatch": "Dispatch",
     "adminSocial": "Social",
-    "localServices": "Services",
-    "localSearch": "Search",
+    "localServices": "Marketplace",
+    "localSearch": "Providers",
     "localDashboard": "Dashboard",
     "adminHelpers": "Helpers",
     "map": "Map",
-    "admin": "Admin"
+    "admin": "Admin",
+    "states": "States & UTs",
+    "providerHub": "Provider Hub"
   },
   "hero": {
-    "eyebrow": "Civic problems + trusted local help",
+    "eyebrow": "Bilingual Civic Action + Local Service Marketplace",
     "titleLead": "Your city's problems,",
     "titleHighlight": "solved together.",
-    "subtitle": "Report public issues with your neighbours, or find verified helpers nearby — all in one bilingual, mobile-first platform.",
+    "subtitle": "Choose Global Mode for civic campaigns and community pool funding across all Indian states, or Local Mode to book verified nearby service providers.",
     "primaryCta": "See how it works",
     "secondaryCta": "Explore the two modes",
     "trustMoney": "Simulated money only",
@@ -74,7 +79,8 @@
       "helperNote": "Phone revealed only after Connect",
       "connect": "Connect",
       "status": "Live in your neighbourhood"
-    }
+    },
+    "title": "Solve public issues together. Book trusted local services."
   },
   "how": {
     "eyebrow": "How Samadhan works",
@@ -126,20 +132,13 @@
     "subtitle": "A civic platform only works when people feel safe using it. These rules are part of the architecture, not an afterthought.",
     "item1Title": "Simulated money",
     "item1Text": "Every fee and fund is simulated in integer paise. No real payments are handled.",
-    "item2Title": "Emergency first",
-    "item2Text": "For emergencies, always call 112. Medical services are intentionally excluded.",
+    "item2Title": "Medical help excluded",
+    "item2Text": "Medical services are intentionally excluded from the local marketplace.",
     "item3Title": "Fact-only campaigns",
     "item3Text": "Public posts use facts, photos and official handles — never personal attacks.",
     "disclaimerTitle": "Not an official government portal",
-    "disclaimerText": "Samadhan records and amplifies public issues transparently. It never claims government authority or commands officials."
-  },
-  "health": {
-    "label": "Backend status",
-    "checking": "Checking backend…",
-    "online": "Backend online · DB connected",
-    "degraded": "Backend online · DB not connected",
-    "offline": "Backend offline",
-    "retry": "Retry health check"
+    "disclaimerText": "Samadhan records and amplifies public issues transparently. It never claims government authority or commands officials.",
+    "disclaimer": "Samadhan is an academic prototype using simulated paise — not an official government portal."
   },
   "footer": {
     "explore": "Explore",
@@ -160,11 +159,15 @@
     "phonePlaceholder": "10-digit mobile number",
     "phoneHint": "Enter a valid 10-digit Indian mobile number",
     "role": {
-      "label": "Register as",
-      "citizen": "Citizen",
-      "helper": "Helper",
+      "label": "Choose your account role",
+      "citizen": "Service Consumer",
+      "helper": "Service Provider",
       "admin": "Admin",
-      "hint": "Citizens can report issues and find helpers. Helpers offer verified services."
+      "hint": "Citizens can report issues and find helpers. Helpers offer verified services.",
+      "consumer": "Service Consumer",
+      "consumerDesc": "Report/support civic issues and book local services.",
+      "provider": "Service Provider",
+      "providerDesc": "List local services, manage booking requests, and earn payouts."
     },
     "login": {
       "title": "Welcome back",
@@ -179,6 +182,31 @@
       "button": "Create account",
       "hasAccount": "Already have an account?",
       "loginLink": "Login here"
+    },
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "logout": "Logout",
+    "validation": {
+      "requiredFields": "Please enter both email and password."
+    },
+    "toast": {
+      "registerSuccess": "Account created! Welcome to Samadhan.",
+      "loginSuccess": "Welcome back, {{name}}!",
+      "logoutSuccess": "Logged out successfully.",
+      "profileUpdated": "Profile updated successfully.",
+      "modeGlobal": "Switched to Global Mode.",
+      "modeLocal": "Switched to Local Mode.",
+      "passwordChanged": "Password changed successfully."
+    },
+    "demo": {
+      "title": "Instant Demo Accounts",
+      "subtitle": "One-click login to test every role with pre-seeded data.",
+      "consumerTitle": "Demo Consumer",
+      "consumerDesc": "Wallet ₹2,500 · Bookings & Civic Reports",
+      "providerTitle": "Demo Service Provider",
+      "providerDesc": "Manage incoming bookings & commissions",
+      "adminTitle": "Demo Admin",
+      "adminDesc": "Verify providers, manage issues & settings"
     }
   },
   "profile": {
@@ -232,7 +260,11 @@
       "SUPPORT_FEE": "Support fee",
       "REFUND": "Refund",
       "PLATFORM_CREDIT": "Platform credit",
-      "SIGNUP_CREDIT": "Signup bonus"
+      "SIGNUP_CREDIT": "Signup bonus",
+      "POOL_CONTRIBUTION": "Pool fund contribution",
+      "BOOKING_PAYMENT": "Service booking payment",
+      "BOOKING_PAYOUT": "Provider booking payout",
+      "BOOKING_REFUND": "Booking refund"
     },
     "errors": {
       "loadFailed": "Could not load your wallet. Please try again.",
@@ -262,7 +294,14 @@
       "SEWAGE": "Sewage",
       "ELECTRICITY": "Electricity",
       "PARK": "Parks",
-      "OTHER": "Other"
+      "OTHER": "Other civic issues",
+      "BROKEN_ROADS": "Broken roads",
+      "SEWAGE_DRAINAGE": "Sewage & drainage",
+      "GARBAGE_MANAGEMENT": "Garbage management",
+      "WATER_ELECTRICITY": "Water & electricity",
+      "STRAY_ANIMALS": "Stray animal problems",
+      "EDUCATION_INFRA": "Education & infrastructure",
+      "PUBLIC_FACILITIES": "IITs, AIIMS & public facilities"
     },
     "feed": {
       "title": "Community issues",
@@ -279,7 +318,10 @@
       "emptyHint": "Be the first to report a problem in your area.",
       "prev": "Previous",
       "next": "Next",
-      "page": "Page {{page}} of {{total}}"
+      "page": "Page {{page}} of {{total}}",
+      "stateAll": "All States & UTs",
+      "typeAll": "All issue types",
+      "importanceAll": "All importance levels"
     },
     "detail": {
       "backToFeed": "Back to feed",
@@ -314,7 +356,9 @@
     "timeline": {
       "platformCredit": "Platform credit added",
       "authorityReply": "Department reply",
-      "authorityAssigned": "Authority assigned"
+      "authorityAssigned": "Authority assigned",
+      "resolutionRecorded": "Resolution recorded",
+      "fundUtilization": "Fund utilization logged"
     },
     "flag": {
       "report": "Report this issue",
@@ -332,6 +376,15 @@
         "WRONG_LOCATION": "Wrong location",
         "OTHER": "Other"
       }
+    },
+    "types": {
+      "SOCIAL_EXPLOSION": "Social Explosion",
+      "POOL_FUNDS": "Pool Funds"
+    },
+    "importance": {
+      "SMALL": "Small",
+      "MEDIUM": "Medium",
+      "LARGE": "Large"
     }
   },
   "report": {
@@ -365,7 +418,18 @@
       "addressLabel": "Address",
       "cityLabel": "City",
       "stateLabel": "State",
-      "pincodeLabel": "Pincode"
+      "pincodeLabel": "Pincode",
+      "typeLabel": "Global issue type",
+      "typeDesc": {
+        "SOCIAL_EXPLOSION": "Rally citizen support to trigger Instagram & X awareness campaigns.",
+        "POOL_FUNDS": "Pool simulated funds to solve the problem directly with utilization tracking."
+      },
+      "importanceLabel": "Importance & dynamic limit",
+      "supportersTarget": "{{count}} supporters limit",
+      "goalLabel": "Funding goal (₹)",
+      "responsibleOrgLabel": "Responsible NGO / group (optional)",
+      "responsibleOrgPlaceholder": "e.g. Paws & Hope Foundation",
+      "poolHint": "This goal is the total pool for this issue. Contributions stay locked and are spent only with itemized public receipts. If the issue is rejected, every contributor is refunded automatically."
     },
     "validation": {
       "title": "Title must be at least 5 characters",
@@ -395,7 +459,8 @@
     "insufficient": "Insufficient balance — top up first",
     "openWallet": "Open wallet",
     "submitFailed": "Could not publish your issue. Please try again.",
-    "success": "Issue reported! Your report fee has been deducted."
+    "success": "Issue reported! Your report fee has been deducted.",
+    "indiaHierarchyNote": "Organized by India → State / Union Territory (28 States + 8 UTs) → City / Area."
   },
   "meter": {
     "aria": "Community fund progress",
@@ -403,7 +468,21 @@
     "tier2": "Escalate · {{amount}}",
     "progress": "{{raised}} of {{target}} to Spotlight",
     "tier1Reached": "Spotlight threshold reached",
-    "bothReached": "Both thresholds reached"
+    "bothReached": "Both thresholds reached",
+    "poolCompact": "{{raised}} of {{goal}}",
+    "explosionCompact": "{{count}} / {{target}} supporters",
+    "poolRaisedLabel": "Pooled funds",
+    "supportProgressLabel": "Public support progress",
+    "percentComplete": "{{pct}}% complete",
+    "goalLabel": "Goal: {{goal}}",
+    "thresholdLabel": "{{level}} limit: {{target}}",
+    "goalReachedMsg": "Funding goal reached! Ready for full execution.",
+    "resolvedSuccess": "Target completed and issue marked resolved.",
+    "explosionReachedMsg": "Threshold reached! Public Explosion campaigns active.",
+    "poolRemaining": "{{remaining}} more needed to reach goal",
+    "supportersRemaining": "{{remaining}} more supporters needed to trigger explosion",
+    "goalReachedShort": "Goal Reached",
+    "explosionTriggeredShort": "Explosion Active"
   },
   "support": {
     "cta": "Support for {{amount}}",
@@ -423,7 +502,19 @@
     "supportersTitle": "Supporters",
     "noSupporters": "No supporters yet — be the first!",
     "supportersLoadFailed": "Could not load supporters.",
-    "reporterBadge": "Reporter"
+    "reporterBadge": "Reporter",
+    "poolCta": "Contribute funds",
+    "poolDialogTitle": "Contribute to Pool Fund",
+    "chooseAmount": "Choose simulated amount",
+    "contributionAmount": "Contribution (simulated)",
+    "poolConfirm": "Contribute {{amount}}",
+    "poolSuccess": "Contribution added to the pool fund!",
+    "poolExplainerTitle": "Where your contribution goes",
+    "poolExplainer": "It stays in this issue's locked pool — not with Samadhan. After the goal is reached, the responsible organisation spends it and logs every itemized expense publicly. If an issue is rejected, contributors are refunded automatically.",
+    "poolGoalLine": "Goal {{goal}} · Raised {{raised}} · Remaining {{remaining}}",
+    "myContribution": "Your contribution so far: {{amount}}",
+    "insufficient": "Insufficient wallet balance.",
+    "goToWallet": "Top up wallet →"
   },
   "duplicate": {
     "title": "Similar issue already exists",
@@ -439,12 +530,14 @@
     "tab": {
       "reported": "Reported",
       "supported": "Supported",
-      "connected": "Connected helpers"
+      "connected": "Connected helpers",
+      "bookings": "My Bookings"
     },
     "empty": {
       "reported": "You haven't reported any issues yet",
       "supported": "You haven't supported any issues yet",
-      "connected": "You have not connected with any helpers yet"
+      "connected": "You have not connected with any helpers yet",
+      "bookings": "You have not booked any local services yet"
     },
     "contributed": "You gave {{amount}}",
     "loadFailed": "Could not load your activity.",
@@ -452,7 +545,8 @@
     "findHelpers": "Find helpers",
     "reviewed": "Reviewed ✓",
     "leaveReview": "Leave a review",
-    "lastConnected": "Last connected: {{date}}"
+    "lastConnected": "Last connected: {{date}}",
+    "youContributed": "Contributed {{amount}}"
   },
   "tier": {
     "spotlight": "Spotlight",
@@ -469,7 +563,7 @@
     "noAuthority": "Escalation pending — no matching department yet",
     "cancelled": "Escalation cancelled",
     "neutral": "A factual summary of this issue was shared with the responsible department for civic follow-up.",
-    "notOfficial": "Samadhan is a community prototype — not an official government portal. In an emergency, call 112.",
+    "notOfficial": "Samadhan is a community prototype — not an official government portal.",
     "dateLabel": "Sent"
   },
   "adminDispatch": {
@@ -546,7 +640,7 @@
     "igHint": "Instagram has no direct web share URL — copy the caption and upload the downloaded PNG card.",
     "cardBrand": "Community-driven civic action",
     "cardSupporters": "{{count}} community supporters",
-    "cardDisclaimer": "Samadhan is a community prototype — not an official government portal. For emergencies, call 112."
+    "cardDisclaimer": "Samadhan is a community prototype — not an official government portal."
   },
   "why": {
     "title": "Why ₹5 / ₹1?",
@@ -593,10 +687,10 @@
     "actionFailed": "Action failed. Please try again."
   },
   "local": {
-    "emergency": "In an emergency, always call 112. Medical help is intentionally not listed here.",
-    "eyebrow": "Local Mode · Verified helpers",
-    "title": "Trusted help, right around the corner.",
-    "subtitle": "Browse admin-verified local service providers. Free to search — connect to reveal contact details.",
+    "eyebrow": "Local Mode · Service Marketplace",
+    "title": "Discover & book trusted local services.",
+    "subtitle": "Browse verified nearby providers across 7 daily categories, book directly, and track completion transparently.",
+    "emptySearch": "No verified service providers match your current filters.",
     "freeNote": "100% free — no wallet fees in Local Mode",
     "setLocation": "Set your location to search nearby helpers",
     "locationSet": "Searching near: {{label}}",
@@ -619,9 +713,17 @@
       "CARPENTER": "Carpenter",
       "PAINTER": "Painter",
       "PACKERS_MOVERS": "Packers & Movers",
-      "GROCERY_DELIVERY": "Grocery Delivery"
+      "GROCERY_DELIVERY": "Grocery Delivery",
+      "CAB_AUTO": "Cab & Auto",
+      "GENERAL_STORE": "General Store",
+      "GARAGE_MECHANIC": "Garage & Mechanics",
+      "SWEETS_BAKERY": "Sweets & Bakery",
+      "PLUMBER_ELECTRICIAN": "Plumber & Electrician",
+      "APPLIANCE_REPAIR": "Appliance Repair",
+      "OTHER_LOCAL": "Other Services"
     },
-    "connects": "{{count}} connects",
+    "connects_one": "1 connect",
+    "connects_other": "{{count}} connects",
     "availableNow": "Available now",
     "unavailable": "Not available",
     "needLocation": "Set your location first",
@@ -632,13 +734,15 @@
     "radiusKm": "{{km}} km",
     "sort": {
       "nearest": "Nearest",
-      "rating": "Top rated"
+      "rating": "Top rated",
+      "priceAsc": "Lowest price",
+      "bookings": "Most booked"
     },
     "loadFailed": "Could not load helpers.",
     "empty": "No verified helpers found here yet",
     "try10km": "Try 10 km radius",
-    "notFound": "This helper profile is not available.",
-    "backToSearch": "Back to search",
+    "notFound": "This service provider profile is not available.",
+    "backToSearch": "Back to Marketplace",
     "experience": "{{years}} yrs experience",
     "ownProfile": "This is your profile — open dashboard",
     "loginToConnect": "Login to connect",
@@ -685,7 +789,7 @@
     "submitRegister": "Submit for verification",
     "registered": "Profile submitted! It is pending admin verification.",
     "registerFailed": "Could not register the profile.",
-    "dashboardTitle": "Helper dashboard",
+    "dashboardTitle": "Service Provider Hub",
     "verification": {
       "PENDING": "Pending verification",
       "VERIFIED": "Verified helper",
@@ -707,9 +811,29 @@
     "saveProfile": "Save changes",
     "saved": "Profile saved.",
     "saveFailed": "Could not save.",
-    "recentConnects": "Recent connects",
-    "noConnects": "No connects yet.",
-    "receivedReviews": "Reviews received"
+    "receivedReviews": "Reviews received",
+    "marketplaceBadge": "Direct Booking · Verified Providers · Wallet Protected",
+    "browseAllCta": "Browse all providers",
+    "featuredTitle": "Top-rated verified providers",
+    "searchAllIndia": "Showing verified providers across India",
+    "browseNationwide": "Show all India",
+    "demoBitMesra": "Demo: BIT Mesra, Ranchi",
+    "demoBitMesraLabel": "BIT Mesra / PMC, Ranchi",
+    "contactsTitle": "Who contacted you",
+    "contactsHint": "People who tapped Connect on your listing. Seekers stay anonymous until they choose to share more.",
+    "contactsTotal": "{{count}} total",
+    "contactsEmpty": "No one has contacted you yet. Keep your listing available and verified to get enquiries.",
+    "contactNew": "New",
+    "contactsNewHint": "{{count}} new contact(s) in the last 24 hours.",
+    "providersCount": "{{count}} verified providers available",
+    "noNearbyFallback": "No providers within {{km}} km of {{label}} — showing all verified providers across India instead.",
+    "searchPlaceholder": "Search provider, city, or service…",
+    "adminCannotRegister": "Admin accounts cannot create a service provider listing.",
+    "selectOneCategory": "Please select at least one category.",
+    "photoOptional": "Shop / profile photo (optional)",
+    "serviceLocation": "Service location & radius",
+    "registerSubmit": "Submit provider listing",
+    "recentReviews": "Recent reviews"
   },
   "adminHelpers": {
     "title": "Helper verification",
@@ -761,6 +885,10 @@
     "title": "Notifications",
     "bellLabel": "Notifications, {{count}} unread",
     "markAll": "Mark all read",
+    "markedAll": "All notifications marked as read.",
+    "markFailed": "Could not mark notifications as read.",
+    "newAlert_one": "{{count}} new notification",
+    "newAlert_other": "{{count}} new notifications",
     "all": "All",
     "unread": "Unread",
     "today": "Today",
@@ -780,7 +908,12 @@
       "HELPER_AUTO_HIDDEN": "Your helper profile was hidden after community flags.",
       "HELPER_UNHIDDEN": "Your helper profile is visible again.",
       "HELPER_REVERIFICATION_REQUIRED": "Your helper details changed — verification is pending again.",
-      "HELPER_NEW_REVIEW": "You received a new {{rating}}★ review."
+      "HELPER_NEW_REVIEW": "You received a new {{rating}}★ review.",
+      "HELPER_NEW_CONNECT": "{{seekerName}} contacted you through your listing. Open Contacts to see who reached out.",
+      "EXPLOSION_TRIGGERED": "Public explosion threshold reached on \"{{title}}\" — awareness posts generated.",
+      "POOL_GOAL_REACHED": "Funding goal reached on \"{{title}}\"!",
+      "BOOKING_CREATED": "New booking request: \"{{title}}\".",
+      "BOOKING_UPDATED": "Booking \"{{title}}\" is now {{status}}."
     }
   },
   "admin": {
@@ -859,7 +992,8 @@
       "netRevenue": "Net revenue",
       "walletBalance": "Wallet balances",
       "open": "open",
-      "verified": "verified"
+      "verified": "verified",
+      "bookingCommission": "Booking commission"
     },
     "attention": {
       "title": "Needs attention",
@@ -886,7 +1020,14 @@
       "duplicateDays": "Duplicate window (days)",
       "autoCloseDays": "Auto-close / reopen window (days)",
       "platformCreditMaxPaise": "Max platform credit",
-      "demoMode": "Demo mode"
+      "demoMode": "Demo mode",
+      "smallIssueThreshold": "Small issue limit (supporters)",
+      "mediumIssueThreshold": "Medium issue limit (supporters)",
+      "largeIssueThreshold": "Large issue limit (supporters)",
+      "smallPoolGoalPaise": "Small pool funding goal",
+      "mediumPoolGoalPaise": "Medium pool funding goal",
+      "largePoolGoalPaise": "Large pool funding goal",
+      "platformCommissionPercent": "Platform commission (%)"
     }
   },
   "errors": {
@@ -946,7 +1087,9 @@
     "NETWORK_ERROR": "Network error. Check your connection.",
     "TIMEOUT": "The server took too long. Please retry.",
     "UNKNOWN": "Something went wrong. Please try again.",
-    "POST_NOT_REGENERATABLE": "This post cannot be regenerated."
+    "POST_NOT_REGENERATABLE": "This post cannot be regenerated.",
+    "BOOKING_NOT_FOUND": "Booking not found.",
+    "CANNOT_BOOK_SELF": "You cannot book your own service listing."
   },
   "notFound": {
     "title": "Page not found",
@@ -975,5 +1118,193 @@
     "resume": "Resume",
     "discard": "Discard draft",
     "saved": "Draft saved"
+  },
+  "landing": {
+    "globalEntry": {
+      "badge": "Civic & Social Issues",
+      "title": "Global Mode",
+      "description": "Report civic problems across India, rally citizen support to trigger Social Explosions, or pool community funds to solve issues directly.",
+      "point1": "Social Explosion campaigns for Instagram & X",
+      "point2": "Pool Funds with transparent expense tracking",
+      "point3": "Track solved status & NGO / Govt / CSR impact",
+      "primaryCta": "Explore Global Issues",
+      "secondaryCta": "Report an Issue"
+    },
+    "localEntry": {
+      "badge": "Verified Local Services",
+      "title": "Local Mode",
+      "description": "Discover verified nearby cab/auto services, general stores, garages, bakeries, plumbers, electricians, and appliance repair.",
+      "point1": "Direct booking from cards & provider profiles",
+      "point2": "Live booking status tracking for consumers",
+      "point3": "Dedicated provider dashboard & wallet payouts",
+      "primaryCta": "Browse Local Marketplace",
+      "secondaryCta": "Register as Provider"
+    },
+    "walkthrough": {
+      "title": "How Samadhan works",
+      "subtitle": "Switch between the two modes below to preview each workflow.",
+      "global": {
+        "step1Title": "Report with importance & location",
+        "step1Text": "Select Social Explosion or Pool Funds, assign Small/Medium/Large priority, and pick India → State/UT → City.",
+        "step2Title": "Support or pool funds",
+        "step2Text": "Citizens add support or contribute funds atomically from their simulated wallet toward the dynamic threshold.",
+        "step3Title": "Trigger action & track solver",
+        "step3Text": "Threshold triggers public social campaigns or funded execution, and records who resolved the issue."
+      },
+      "local": {
+        "step1Title": "Discover by category & area",
+        "step1Text": "Filter verified providers across 7 everyday categories by state, city, rating, price, or GPS distance.",
+        "step2Title": "Book directly in seconds",
+        "step2Text": "Choose a date and time slot right from a provider card or profile with clear upfront pricing.",
+        "step3Title": "Track completion & rate",
+        "step3Text": "Providers accept, complete work, and receive payouts minus platform commission while consumers rate the experience."
+      }
+    },
+    "stats": {
+      "totalIssues": "Civic issues listed",
+      "resolvedIssues": "Issues resolved",
+      "thresholdsReached": "Thresholds reached",
+      "statesCovered": "States & UTs active"
+    },
+    "partners": {
+      "title": "Organizations Solving Issues",
+      "subtitle": "Recognition for Government departments, NGOs, and Private CSR partners creating verified impact.",
+      "viewAll": "Explore States & Partners",
+      "solvedCount_one": "1 issue solved",
+      "solvedCount_other": "{{count}} issues solved"
+    }
+  },
+  "resolution": {
+    "title": "Resolution & Solver Tracking",
+    "edit": "Update solver",
+    "recordCta": "Mark solved & record who fixed it",
+    "solverTypeLabel": "Solved by",
+    "orgLabel": "Organization / Department name",
+    "orgPlaceholder": "e.g. Municipal Corp, NGO, or Private Co.",
+    "departmentLabel": "Wing / Team / Lead (optional)",
+    "departmentPlaceholder": "e.g. Road Maintenance Wing",
+    "detailsLabel": "Resolution details",
+    "impactLabel": "Impact summary",
+    "enablePromo": "Enable partner recognition & promotion badge",
+    "taglinePlaceholder": "Partner impact tagline",
+    "badgePlaceholder": "Badge label (e.g. Verified Civic NGO)",
+    "saved": "Resolution details saved!",
+    "impactHeading": "Verified impact",
+    "verifiedPartner": "Verified Impact Partner",
+    "visitPartner": "Visit partner",
+    "unresolvedHint": "Not yet resolved. Once fixed, the solver (Government, NGO, or Private Company) and impact details appear here.",
+    "solvedByInline": "Solved by {{org}}",
+    "solverTypes": {
+      "GOVERNMENT": "Government Department",
+      "NGO": "NGO / Non-Profit",
+      "PRIVATE_ORG": "Private Organization",
+      "COMMUNITY": "Community Action"
+    }
+  },
+  "pool": {
+    "utilizationTitle": "Pool Fund Utilization & Accountability",
+    "guideTitle": "How this Pool Fund works",
+    "guideSubtitle": "This is a community pool for this one issue — not a donation to Samadhan.",
+    "guideGoal": "Goal",
+    "guideRaised": "Pooled",
+    "guideSpent": "Spent",
+    "guideRemaining": "Remaining",
+    "guideStep1Title": "It starts with a deposit",
+    "guideStep1Text": "The reporter's report fee seeds this pool. Neighbours can add ₹10–₹250 anytime while the issue is open.",
+    "guideStep2Title": "Locked until the goal",
+    "guideStep2Text": "No one can withdraw early. At {{goal}}, the named responsible organisation starts the work.",
+    "guideStep3Title": "Receipts or refunds",
+    "guideStep3Text": "Every expense is posted with item, amount and a note. If an admin rejects the issue, all contributions are returned.",
+    "guideRefund": "Rejected as invalid? Every contributor gets an automatic wallet refund — no request needed.",
+    "guideSimulated": "Simulated paise only — this college prototype never moves real money.",
+    "guideStatusOpen": "Collecting contributions. Spending has not started yet.",
+    "guideStatusSpending": "Contributions are still open, and logged expenses appear below with receipts.",
+    "guideStatusGoal": "Goal reached — funded work can now be executed.",
+    "guideStatusRefunded": "Issue rejected — contributions were automatically refunded.",
+    "pooled": "Pooled",
+    "spent": "Spent",
+    "remaining": "Remaining",
+    "addExpense": "Log utilization",
+    "responsibleLabel": "Responsible Organization / Lead",
+    "itemPlaceholder": "Expense item (e.g. Veterinary medicines)",
+    "amountPlaceholder": "Amount (₹)",
+    "notePlaceholder": "Brief note / proof",
+    "utilizationAdded": "Fund utilization entry recorded.",
+    "noUtilizationYet": "No expense entries logged yet.",
+    "totalUtilized": "Total utilized of pooled funds"
+  },
+  "states": {
+    "eyebrow": "India · 28 States & 8 Union Territories",
+    "title": "State & Area Issue Explorer",
+    "subtitle": "Track civic issues, public explosion limits, resolved counts, and NGO/partner impact across every Indian state and UT.",
+    "browseAllIssues": "Browse all issues",
+    "kpiTotal": "Total issues",
+    "kpiExplosions": "Thresholds reached",
+    "kpiResolved": "Issues resolved",
+    "kpiPoolTotal": "Total pooled / fees",
+    "directoryTitle": "All 28 States & 8 Union Territories",
+    "clearFilter": "Show all areas",
+    "utLabel": "Union Territory",
+    "stateLabel": "State",
+    "issueCount_one": "1 issue",
+    "issueCount_other": "{{count}} issues",
+    "resolvedMini": "{{count}} solved",
+    "selected": "Selected",
+    "viewAreas": "View areas",
+    "openFeed": "Open feed →",
+    "areasIn": "Areas in {{state}}",
+    "topAreas": "Active Cities & Areas",
+    "noAreas": "No area reports recorded here yet."
+  },
+  "bookings": {
+    "bookNow": "Book Now",
+    "bookService": "Book Service",
+    "dialogTitle": "Book Local Service",
+    "loginRequired": "Please login as a consumer to book this service.",
+    "estimatedFee": "Service charge (simulated wallet hold)",
+    "serviceLabel": "Service needed",
+    "dateLabel": "Preferred date",
+    "slotLabel": "Time slot",
+    "addressLabel": "Service address",
+    "addressPlaceholder": "House/flat, street, landmark…",
+    "notesLabel": "Instructions (no phone/URLs)",
+    "notesPlaceholder": "Any helpful instructions for the provider…",
+    "confirmCta": "Confirm & hold {{amount}}",
+    "createdSuccess": "Booking confirmed! Funds held safely until completion.",
+    "statusUpdated": "Booking status updated.",
+    "completedShort_one": "1 job",
+    "completedShort_other": "{{count}} jobs",
+    "completedTitle": "Completed jobs",
+    "netEarnings": "Net earnings",
+    "basePriceLabel": "Base price (₹)",
+    "commissionBanner": "Gross completed: {{gross}} · Platform commission: {{commission}} · Your net payout: {{net}}",
+    "emptyProvider": "No booking requests yet. Keep your listing available to receive orders.",
+    "payoutLine": "Your payout: {{payout}} (after {{pct}}% platform fee)",
+    "providerTab": {
+      "bookings": "Bookings & Payouts",
+      "contacts": "Contacts",
+      "profile": "Service Profile",
+      "reviews": "Reviews"
+    },
+    "statuses": {
+      "PENDING": "Pending",
+      "ACCEPTED": "Accepted",
+      "IN_PROGRESS": "In Progress",
+      "COMPLETED": "Completed",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Cancelled"
+    },
+    "paymentStatuses": {
+      "HELD": "Payment held",
+      "SETTLED": "Paid & settled",
+      "REFUNDED": "Refunded"
+    },
+    "actions": {
+      "accept": "Accept",
+      "reject": "Reject",
+      "start": "Start work",
+      "complete": "Complete & settle",
+      "cancel": "Cancel booking"
+    }
   }
 }

@@ -97,10 +97,11 @@ export async function ogPage(req, res) {
     const ogImage = issue.photos?.[0] || (env.defaultSocialImageUrl || '');
     const ogUrl = `${env.publicShareBaseUrl || env.clientUrl}/i/${id}`;
     
-    const statusLabel = issue.status === 'ACTIVE' ? 'Active' : 
+    const statusLabel = issue.status === 'ACTIVE' ? 'Active' :
                         issue.status === 'RESOLVED' ? 'Resolved' : issue.status;
-    const tierLabel = issue.tier === 1 ? 'Spotlight' : 
-                      issue.tier === 2 ? 'Escalated' : '';
+    const tierLabel = issue.explosionTriggered
+      ? (issue.issueType === 'POOL_FUNDS' ? 'Funding Goal Reached' : 'Public Explosion Triggered')
+      : `${issue.importance || 'MEDIUM'} Priority`;
     
     const html = `
 <!DOCTYPE html>
@@ -217,9 +218,10 @@ export async function ogPage(req, res) {
   <p>${description}...</p>
   
   <div class="info">
-    <strong>Category:</strong> ${escapeHtml(issue.category)}<br>
-    <strong>Location:</strong> ${escapeHtml(issue.location?.city || issue.location?.address || 'Location not specified')}<br>
+    <strong>Category:</strong> ${escapeHtml(issue.category)} · <strong>Type:</strong> ${escapeHtml(issue.issueType || 'SOCIAL_EXPLOSION')}<br>
+    <strong>Location:</strong> ${escapeHtml([issue.location?.city, issue.location?.state, 'India'].filter(Boolean).join(', '))}<br>
     <strong>Community Support:</strong> ${issue.supporterCount} ${issue.supporterCount === 1 ? 'person' : 'people'}
+    ${issue.resolution?.organizationName ? `<br><strong>Solved By:</strong> ${escapeHtml(issue.resolution.organizationName)} (${escapeHtml(issue.resolution.solverType || '')})` : ''}
   </div>
   
   <a href="${escapeHtml(env.clientUrl)}/issues/${id}" class="cta">Open in Samadhan App</a>

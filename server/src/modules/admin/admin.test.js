@@ -31,6 +31,7 @@ const A = () => ({ Authorization: `Bearer ${tokenFor(admin)}` });
 beforeAll(async () => {
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   await mongoose.connect(replSet.getUri());
+  await Issue.init();
   await ensureDefaultSettings();
   admin = await makeUser({ role: 'ADMIN' });
   citizen = await funded();
@@ -180,10 +181,10 @@ describe('Settings + categories', () => {
 
   it('categories: disabled rejected on create, cannot disable OTHER/all, meta enabled only', async () => {
     expect((await request(app).patch('/api/admin/categories').set(A()).send({ disabledIssueCategories: ['OTHER'] })).status).toBe(400);
-    const all = ['ROAD', 'GARBAGE', 'WATER', 'STREETLIGHT', 'SEWAGE', 'ELECTRICITY', 'PARK', 'OTHER'];
+    const all = ['BROKEN_ROADS', 'SEWAGE_DRAINAGE', 'GARBAGE_MANAGEMENT', 'WATER_ELECTRICITY', 'STRAY_ANIMALS', 'EDUCATION_INFRA', 'PUBLIC_FACILITIES', 'OTHER'];
     expect((await request(app).patch('/api/admin/categories').set(A()).send({ disabledIssueCategories: all })).status).toBe(400);
-    await request(app).patch('/api/admin/categories').set(A()).send({ disabledIssueCategories: ['PARK'] });
-    expect((await request(app).get('/api/issues/meta')).body.data.categories).not.toContain('PARK');
+    await request(app).patch('/api/admin/categories').set(A()).send({ disabledIssueCategories: ['PUBLIC_FACILITIES'] });
+    expect((await request(app).get('/api/issues/meta')).body.data.categories).not.toContain('PUBLIC_FACILITIES');
     const blocked = await request(app).post('/api/issues').set('Authorization', `Bearer ${tokenFor(citizen)}`).send({ title: 'Park issue here', description: 'The park benches are broken and need repair urgently please.', category: 'PARK', location: { coordinates: [77.6, 12.97], city: 'Bengaluru' }, idempotencyKey: `r:${Math.random()}` });
     expect(blocked.status).toBe(400);
     expect(blocked.body.error.code).toBe('CATEGORY_DISABLED');

@@ -1,4 +1,5 @@
 import Authority from './authority.model.js';
+import { normalizeIssueCategory } from '../issues/issue.model.js';
 import { ApiError } from '../../utils/apiResponse.js';
 
 /** trim → lowercase → strip diacritics → collapse spaces. */
@@ -41,7 +42,7 @@ export async function updateAuthority(id, data) {
  */
 export async function matchAuthority(issue) {
   const cityKey = normaliseCity(issue?.location?.city);
-  const category = issue?.category;
+  const category = normalizeIssueCategory(issue?.category);
   const active = await Authority.find({ isActive: true }).lean();
 
   const cityMatch = (a) => cityKey && a.cityKeys.includes(cityKey);

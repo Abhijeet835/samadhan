@@ -6,17 +6,23 @@ import WalletTxn, { WALLET_TXN_TYPES } from './walletTxn.model.js';
 import { TOPUP_PACKS_PAISE } from './wallet.schema.js';
 import { ApiError } from '../../utils/apiResponse.js';
 
-const CREDIT_TYPES = ['TOPUP', 'REFUND', 'PLATFORM_CREDIT', 'SIGNUP_CREDIT'];
-const DEBIT_TYPES = ['REPORT_FEE', 'SUPPORT_FEE'];
+const CREDIT_TYPES = ['TOPUP', 'REFUND', 'PLATFORM_CREDIT', 'SIGNUP_CREDIT', 'BOOKING_PAYOUT', 'BOOKING_REFUND'];
+const DEBIT_TYPES = ['REPORT_FEE', 'SUPPORT_FEE', 'POOL_CONTRIBUTION', 'BOOKING_PAYMENT'];
 
-// All money values are integer paise. demoMode lowers the tier thresholds
-// (Tier 1 = Rs 20, Tier 2 = Rs 50) for live demos; the tier engine (Phase 5)
-// reads these through getSetting / getEffectiveTierThresholds.
+// All money values are integer paise. Dynamic importance limits & platform
+// commission percent are stored in settings so business logic never hardcodes them.
 const DEFAULT_SETTINGS = Object.freeze({
   reportFeePaise: 500,
   supportFeePaise: 100,
   tier1Paise: 20000,
   tier2Paise: 50000,
+  smallIssueThreshold: 5,
+  mediumIssueThreshold: 15,
+  largeIssueThreshold: 30,
+  smallPoolGoalPaise: 50000,
+  mediumPoolGoalPaise: 250000,
+  largePoolGoalPaise: 1000000,
+  platformCommissionPercent: 10,
   signupCreditPaise: 5000,
   duplicateRadiusM: 100,
   duplicateDays: 30,
@@ -29,6 +35,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 });
 
 const DEMO_TIER_PAISE = Object.freeze({ tier1Paise: 2000, tier2Paise: 5000 });
+const DEMO_IMPORTANCE_THRESHOLDS = Object.freeze({ SMALL: 3, MEDIUM: 6, LARGE: 12 });
 
 /**
  * Seed default settings idempotently. Existing values (e.g. changed by an
@@ -68,17 +75,45 @@ export async function getEffectiveTierThresholds() {
 }
 
 /**
+ * Dynamic importance-based supporter thresholds (SMALL / MEDIUM / LARGE).
+ */
+export async function getImportanceThresholds() {
+  const demoMode = await getSetting('demoMode');
+  if (demoMode === true) {
+    return { ...DEMO_IMPORTANCE_THRESHOLDS };
+  }
+  return {
+    SMALL: await getSetting('smallIssueThreshold').catch(() => 5),
+    MEDIUM: await getSetting('mediumIssueThreshold').catch(() => 15),
+    LARGE: await getSetting('largeIssueThreshold').catch(() => 30),
+  };
+}
+
+export async function getPoolGoalDefaults() {
+  return {
+    SMALL: await getSetting('smallPoolGoalPaise').catch(() => 50000),
+    MEDIUM: await getSetting('mediumPoolGoalPaise').catch(() => 250000),
+    LARGE: await getSetting('largePoolGoalPaise').catch(() => 1000000),
+  };
+}
+
+export async function getCommissionPercent() {
+  const pct = await getSetting('platformCommissionPercent').catch(() => 10);
+  return Number.isFinite(Number(pct)) ? Math.min(50, Math.max(0, Number(pct))) : 10;
+}
+
+/**
  * Atomically apply a signed paise amount to a user's wallet and write the
  * immutable ledger row inside ONE MongoDB transaction.
  *
  * - Debits use a conditional update ({ balancePaise: { $gte: debit } }) so the
  *   balance can never go below zero, even under concurrent charges.
  * - The unique idempotencyKey guarantees a retry/double-tap never double-charges.
- * - Pass `session` to join a caller-owned transaction (e.g. report/support flows).
+ * - Pass `session` to join a caller-owned transaction (e.g. report/support/booking flows).
  *
  * @returns {Promise<{ txn: Object, wallet: Object, idempotent: boolean }>}
  */
-export async function chargeWallet({ userId, type, amountPaise, issueId, idempotencyKey, session: outerSession }) {
+export async function chargeWallet({ userId, type, amountPaise, issueId, bookingId, idempotencyKey, session: outerSession }) {
   if (!WALLET_TXN_TYPES.includes(type)) {
     throw new ApiError(`Unknown wallet transaction type "${type}".`, 400, 'INVALID_TXN_TYPE');
   }
@@ -132,7 +167,7 @@ export async function chargeWallet({ userId, type, amountPaise, issueId, idempot
     }
 
     const [txn] = await WalletTxn.create(
-      [{ userId, type, amountPaise, issueId, idempotencyKey }],
+      [{ userId, type, amountPaise, issueId, bookingId, idempotencyKey }],
       { session },
     );
 

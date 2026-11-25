@@ -4,6 +4,10 @@ export const WALLET_TXN_TYPES = [
   'TOPUP',
   'REPORT_FEE',
   'SUPPORT_FEE',
+  'POOL_CONTRIBUTION',
+  'BOOKING_PAYMENT',
+  'BOOKING_PAYOUT',
+  'BOOKING_REFUND',
   'REFUND',
   'PLATFORM_CREDIT',
   'SIGNUP_CREDIT',
@@ -33,6 +37,10 @@ const walletTxnSchema = new mongoose.Schema(
     issueId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Issue',
+    },
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Booking',
     },
     idempotencyKey: {
       type: String,

@@ -13,6 +13,7 @@ import AuditLog from '../modules/tiers/auditLog.model.js';
 import DispatchLog from '../modules/dispatch/dispatchLog.model.js';
 import SocialPost from '../modules/social/socialPost.model.js';
 import Notification from '../modules/notifications/notification.model.js';
+import Booking from '../modules/bookings/booking.model.js';
 
 export async function verifyData() {
   const violations = [];
@@ -38,9 +39,11 @@ export async function verifyData() {
     const credit = iss.platformCreditPaise ?? 0;
     if (iss.status === 'REJECTED') {
       if (iss.fundPaise !== 0) violations.push(`issue ${iss._id}: REJECTED fund ≠ 0`);
-      const fees = await WalletTxn.find({ issueId: iss._id, type: { $in: ['REPORT_FEE', 'SUPPORT_FEE'] } }).lean();
+      const fees = await WalletTxn.find({ issueId: iss._id, type: { $in: ['REPORT_FEE', 'SUPPORT_FEE', 'POOL_CONTRIBUTION'] } }).lean();
       const refunds = await WalletTxn.find({ issueId: iss._id, type: 'REFUND' }).lean();
-      if (fees.length !== refunds.length) violations.push(`issue ${iss._id}: ${fees.length} fees vs ${refunds.length} refunds`);
+      const feeSum = fees.reduce((s, f) => s + Math.abs(f.amountPaise), 0);
+      const refSum = refunds.reduce((s, r) => s + r.amountPaise, 0);
+      if (feeSum !== refSum) violations.push(`issue ${iss._id}: fees ${feeSum} vs refunds ${refSum}`);
     } else if (iss.fundPaise !== sup.total + credit) {
       violations.push(`issue ${iss._id}: fund ${iss.fundPaise} ≠ supports ${sup.total} + credit ${credit}`);
     }
@@ -81,6 +84,15 @@ export async function verifyData() {
   for (const phone of phones) {
     if (phone && blob.includes(phone)) violations.push(`helper phone ${phone} leaked into social/notification payload`);
   }
+
+  // 5. booking commission invariant
+  const bookings = await Booking.find().lean();
+  for (const b of bookings) {
+    if (b.amountPaise !== b.commissionPaise + b.providerPayoutPaise) {
+      violations.push(`booking ${b._id}: amount ${b.amountPaise} ≠ commission ${b.commissionPaise} + payout ${b.providerPayoutPaise}`);
+    }
+  }
+  summary.bookings = bookings.length;
 
   return { ok: violations.length === 0, violations, summary };
 }

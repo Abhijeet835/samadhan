@@ -57,6 +57,17 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          i18n: ['i18next', 'react-i18next'],
+          icons: ['lucide-react'],
+        },
+      },
+    },
+  },
   server: { host: 'localhost', port: 5173, strictPort: true },
   preview: { host: 'localhost', port: 5173, strictPort: true },
 });

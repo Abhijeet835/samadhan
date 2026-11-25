@@ -38,7 +38,7 @@ export const issueFlagSchema = z.object({
 export const adminUsersQuerySchema = z.object({
   ...page,
   q: z.string().max(120).optional(),
-  role: z.enum(['CITIZEN', 'HELPER', 'ADMIN']).optional(),
+  role: z.enum(['CONSUMER', 'PROVIDER', 'CITIZEN', 'HELPER', 'ADMIN']).optional(),
   isActive: z.enum(['true', 'false']).optional(),
 });
 export const patchUserSchema = z.object({ isActive: z.boolean() });
@@ -48,6 +48,13 @@ export const patchSettingsSchema = z.object({
   supportFeePaise: z.number().int().optional(),
   tier1Paise: z.number().int().optional(),
   tier2Paise: z.number().int().optional(),
+  smallIssueThreshold: z.number().int().min(1).max(1000).optional(),
+  mediumIssueThreshold: z.number().int().min(2).max(5000).optional(),
+  largeIssueThreshold: z.number().int().min(3).max(20000).optional(),
+  smallPoolGoalPaise: z.number().int().min(1000).max(50000000).optional(),
+  mediumPoolGoalPaise: z.number().int().min(2000).max(50000000).optional(),
+  largePoolGoalPaise: z.number().int().min(5000).max(50000000).optional(),
+  platformCommissionPercent: z.number().int().min(0).max(50).optional(),
   signupCreditPaise: z.number().int().optional(),
   duplicateRadiusM: z.number().int().optional(),
   duplicateDays: z.number().int().optional(),

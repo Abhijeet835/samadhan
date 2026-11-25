@@ -140,6 +140,7 @@ const makeAuthority = (overrides = {}) =>
 beforeAll(async () => {
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   await mongoose.connect(replSet.getUri());
+  await Issue.init();
   await ensureDefaultSettings();
 }, 300_000);
 

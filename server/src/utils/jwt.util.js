@@ -43,6 +43,12 @@ export function verifyToken(token) {
   }
 }
 
+export function normalizeRole(role) {
+  if (role === 'CITIZEN') return 'CONSUMER';
+  if (role === 'HELPER') return 'PROVIDER';
+  return role;
+}
+
 /**
  * Create token payload from user
  * @param {Object} user - Mongoose user document
@@ -52,6 +58,6 @@ export function createTokenPayload(user) {
   return {
     userId: user._id.toString(),
     email: user.email,
-    role: user.role,
+    role: normalizeRole(user.role),
   };
 }

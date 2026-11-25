@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
-import { ISSUE_CATEGORIES } from '../issues/issue.model.js';
+import { ALL_ACCEPTED_ISSUE_CATEGORIES, normalizeIssueCategory } from '../issues/issue.model.js';
 
-const categoryEnum = z.enum([...ISSUE_CATEGORIES, '*']);
+const categoryEnum = z
+  .enum([...ALL_ACCEPTED_ISSUE_CATEGORIES, '*'])
+  .transform((v) => (v === '*' ? '*' : normalizeIssueCategory(v)));
 
 const handlesSchema = z.object({
   x: z.string().max(100).optional().default(''),

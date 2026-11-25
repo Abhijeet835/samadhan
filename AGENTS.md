@@ -8,14 +8,15 @@
 
 ## Project Summary
 - **App:** Samadhan — intermediate-level college prototype (not production).
-- **Modes:** Global (public civic problems with simulated Rs 5 report / Rs 1 +1 fund) and Local (verified nearby helpers).
+- **Modes:** Global (Social Explosion + Pool Funds civic/social issues across 28 Indian States + 8 UTs with SMALL/MEDIUM/LARGE importance limits and solver/NGO recognition) and Local (verified service marketplace with 7 categories, direct bookings, provider booking management, consumer tracking, and platform commission).
+- **Roles:** `CONSUMER` (Service Consumer), `PROVIDER` (Service Provider), `ADMIN` (legacy `CITIZEN`/`HELPER` normalized cleanly).
 - **Stack (Strict Lock):** React 18 (Vite) + Tailwind CSS + shadcn/ui + react-i18next (EN/HI) | Node.js + Express + Mongoose + Zod | MongoDB Atlas (2dsphere + transactions) | Cloudinary | Leaflet/OSM | Nodemailer | node-cron. **NO PostgreSQL, NO Docker.**
 
 ## Non-Negotiable Technical Rules
 - **Module Pattern:** Every backend module under `server/src/modules/<name>` separates `routes`, `controller`, `service`, `model`, and `schema` (Zod). Put all business logic in services, never controllers.
 - **Money = Integer Paise ONLY:** Rs 5 = 500, Rs 1 = 100, Rs 200 = 20000, Rs 500 = 50000. Read all fees and thresholds from the `settings` collection (never hardcode).
 - **Atomic Payments:** Wallet debit + `walletTxns` row (with unique `idempotencyKey`) + issue/support write MUST execute inside one MongoDB transaction. Balance can never go below 0.
-- **Race-Safe Tiers:** `checkTiers(issueId)` runs AFTER the payment transaction commits using an atomic conditional update (`tiersReached: { $ne: tier }`). Only the single winner runs Tier 1 / Tier 2 side effects.
+- **Threshold & Commission Engine:** Importance-based issue thresholds (`SMALL`/`MEDIUM`/`LARGE`) and Local booking `platformCommissionPercent` are read from `settings` and claimed/settled atomically. Only a single claim winner triggers public explosion social posts / notifications.
 - **State Machine:** All issue status changes (`ACTIVE -> ACKNOWLEDGED -> IN_PROGRESS -> RESOLVED -> CLOSED` or `REJECTED`) MUST go through `transitionIssue(issueId, newStatus, actor, note)`. Tier (0/1/2) is a separate field.
 - **API Envelope:** Every endpoint returns `{ success: true, data }` or `{ success: false, error: { code, message } }`.
 - **Bilingual (EN + HI):** Every user-facing text string must use `t('key')` via `react-i18next` with both `en.json` and `hi.json` updated in the same phase.

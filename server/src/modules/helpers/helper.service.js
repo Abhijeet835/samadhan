@@ -6,10 +6,12 @@ import Helper from './helper.model.js';
 import Connection from './connection.model.js';
 import Review from './review.model.js';
 import HelperFlag from './helperFlag.model.js';
+import Booking from '../bookings/booking.model.js';
+import { buildProviderTextFilter } from '../bookings/booking.service.js';
 import User from '../users/user.model.js';
 import AuditLog from '../tiers/auditLog.model.js';
 import { notifyUsers } from '../notifications/notification.service.js';
-import { getSetting } from '../wallet/wallet.service.js';
+import { getCommissionPercent, getSetting } from '../wallet/wallet.service.js';
 import { ApiError } from '../../utils/apiResponse.js';
 import {
   AUTO_HIDE_FLAG_THRESHOLD,
@@ -31,7 +33,7 @@ function toDisplayName(name) {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
 }
 
-const OWNER_FIELDS = ['displayName', 'photoUrl', 'phone', 'categories', 'experienceYears', 'bio', 'priceHint', 'serviceLocation', 'radiusKm', 'isAvailable'];
+const OWNER_FIELDS = ['displayName', 'photoUrl', 'phone', 'categories', 'experienceYears', 'bio', 'priceHint', 'basePricePaise', 'serviceLocation', 'radiusKm', 'isAvailable'];
 
 function pickOwnerFields(data) {
   const patch = {};
@@ -45,12 +47,16 @@ function pickOwnerFields(data) {
 }
 
 export async function getHelperMeta() {
-  const disabled = await getSetting('disabledHelperCategories');
+  const [disabled, commissionPercent] = await Promise.all([
+    getSetting('disabledHelperCategories'),
+    getCommissionPercent(),
+  ]);
   const disabledSet = new Set(disabled ?? []);
   return {
     categories: LOCAL_CATEGORIES.filter((c) => !disabledSet.has(c)),
     radii: [...SEARCH_RADII_KM],
     dailyConnectLimit: DAILY_CONNECT_LIMIT,
+    commissionPercent,
   };
 }
 
@@ -165,6 +171,7 @@ export async function getHelperDashboard(userId, { page = 1, limit = 10 } = {}) 
     },
     connections: {
       items: connections.map((c) => ({
+        _id: String(c._id),
         seekerName: toDisplayName(c.seekerId?.name),
         connectedAt: c.createdAt,
       })),
@@ -179,43 +186,62 @@ export async function getHelperDashboard(userId, { page = 1, limit = 10 } = {}) 
   };
 }
 
-/** $geoNear + helper's own radiusKm (override #5), $facet pagination, NO phone. */
-export async function searchHelpers({ category, lat, lng, radiusKm = 5, sort = 'nearest', page = 1, limit = 12 }) {
-  const [result] = await Helper.aggregate([
-    {
-      $geoNear: {
-        near: { type: 'Point', coordinates: [lng, lat] },
-        distanceField: 'distanceM',
-        spherical: true,
-        key: 'serviceLocation',
-        maxDistance: radiusKm * 1000,
-        query: {
-          verificationStatus: 'VERIFIED',
-          isHidden: false,
-          ...(category ? { categories: category } : {}),
+/**
+ * Provider search: supports BOTH nearby geo search (lat/lng provided, with
+ * dual radius check) AND nationwide directory browsing (state/city/category/q
+ * without GPS), so seeded providers are always visible. NEVER leaks phone.
+ */
+export async function searchHelpers({ category, lat, lng, state, city, q, radiusKm = 5, sort, page = 1, limit = 12 }) {
+  const hasGeo = Number.isFinite(lat) && Number.isFinite(lng);
+  const textMatch = buildProviderTextFilter({ state, city, q });
+  const baseQuery = {
+    verificationStatus: 'VERIFIED',
+    isHidden: false,
+    ...(category ? { categories: category } : {}),
+    ...textMatch,
+  };
+
+  const sortOrder = sort || (hasGeo ? 'nearest' : 'rating');
+  const sortStage = {
+    nearest: hasGeo ? { distanceM: 1, ratingAvg: -1 } : { ratingAvg: -1, bookingCount: -1 },
+    rating: { ratingAvg: -1, ratingCount: -1, ...(hasGeo ? { distanceM: 1 } : { bookingCount: -1 }) },
+    price_asc: { basePricePaise: 1, ratingAvg: -1 },
+    price_desc: { basePricePaise: -1, ratingAvg: -1 },
+    bookings: { bookingCount: -1, ratingAvg: -1 },
+  }[sortOrder] ?? { ratingAvg: -1 };
+
+  const pipeline = hasGeo
+    ? [
+        {
+          $geoNear: {
+            near: { type: 'Point', coordinates: [lng, lat] },
+            distanceField: 'distanceM',
+            spherical: true,
+            key: 'serviceLocation',
+            maxDistance: radiusKm * 1000,
+            query: baseQuery,
+          },
         },
-      },
-    },
-    { $match: { $expr: { $lte: ['$distanceM', { $multiply: ['$radiusKm', 1000] }] } } },
-    {
-      $sort:
-        sort === 'rating'
-          ? { ratingAvg: -1, ratingCount: -1, distanceM: 1 }
-          : { distanceM: 1, ratingAvg: -1 },
-    },
+        { $match: { $expr: { $lte: ['$distanceM', { $multiply: ['$radiusKm', 1000] }] } } },
+      ]
+    : [{ $match: baseQuery }];
+
+  pipeline.push(
+    { $sort: sortStage },
     {
       $facet: {
         items: [
           { $skip: (page - 1) * limit },
           { $limit: limit },
           { $project: { phone: 0, userId: 0, rejectionReason: 0, flagCount: 0, __v: 0 } },
-          { $addFields: { distanceM: { $round: ['$distanceM', 0] } } },
+          ...(hasGeo ? [{ $addFields: { distanceM: { $round: ['$distanceM', 0] } } }] : []),
         ],
         total: [{ $count: 'n' }],
       },
     },
-  ]);
+  );
 
+  const [result] = await Helper.aggregate(pipeline);
   const total = result.total[0]?.n ?? 0;
   return {
     items: result.items.map((item) => ({ ...item, serviceLocation: publicServiceLocation(item.serviceLocation) })),
@@ -269,16 +295,19 @@ export async function getHelperById(helperId, viewerUserId, { page = 1, limit = 
     isAuthenticated: !!viewerUserId,
     isOwner: !!isOwner,
     hasConnected: false,
+    hasBooked: false,
     hasFlagged: false,
     myReview: null,
   };
   if (viewerUserId) {
-    const [connected, flagged, myReview] = await Promise.all([
+    const [connected, booked, flagged, myReview] = await Promise.all([
       Connection.exists({ seekerId: viewerUserId, helperId }),
+      Booking.exists({ consumerId: viewerUserId, helperId }),
       HelperFlag.exists({ userId: viewerUserId, helperId }),
       Review.findOne({ helperId, seekerId: viewerUserId }).lean(),
     ]);
     viewerState.hasConnected = !!connected;
+    viewerState.hasBooked = !!booked;
     viewerState.hasFlagged = !!flagged;
     viewerState.myReview = myReview;
   }
@@ -359,6 +388,15 @@ export async function connectHelper({ seekerId, helperId }) {
     }
     if (firstEver) {
       await Helper.updateOne({ _id: helperId }, { $inc: { connectCount: 1 } });
+      // Provider inbox: WHO contacted me. Masked seeker name only (never PII),
+      // fire-and-forget after the connection is committed.
+      const seeker = await User.findById(seekerId).select('name').lean();
+      void notifyUsers({
+        userIds: [helper.userId],
+        type: 'HELPER_NEW_CONNECT',
+        payload: { helperId: String(helperId), seekerName: toDisplayName(seeker?.name) },
+        dedupeKey: `connect:${connection._id}`,
+      }).catch(() => {});
     }
     return connectResponse(helper, count);
   });
@@ -373,8 +411,12 @@ export async function upsertReview({ seekerId, helperId, rating, comment }) {
     throw new ApiError('You cannot review your own helper profile.', 409, 'CANNOT_REVIEW_SELF');
   }
   assertNoContactInfo({ comment });
-  if (!(await Connection.exists({ seekerId, helperId }))) {
-    throw new ApiError('Connect with this helper before leaving a review.', 403, 'CONNECTION_REQUIRED');
+  const [hasConnected, hasBooked] = await Promise.all([
+    Connection.exists({ seekerId, helperId }),
+    Booking.exists({ consumerId: seekerId, helperId }),
+  ]);
+  if (!hasConnected && !hasBooked) {
+    throw new ApiError('Connect or book with this provider before leaving a review.', 403, 'CONNECTION_REQUIRED');
   }
 
   const existing = await Review.findOne({ helperId, seekerId });

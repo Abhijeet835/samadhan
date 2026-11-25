@@ -38,7 +38,7 @@ export default function AdminDashboardPage() {
     { label: t('admin.kpi.grossFees'), value: money(data.simulatedRevenue.grossFeesPaise), sub: t('admin.simulated') },
     { label: t('admin.kpi.refunds'), value: money(data.simulatedRevenue.refundsPaise), sub: t('admin.simulated') },
     { label: t('admin.kpi.netRevenue'), value: money(data.simulatedRevenue.netPaise), sub: t('admin.simulated') },
-    { label: t('admin.kpi.walletBalance'), value: money(data.wallet.totalBalancePaise), sub: t('admin.simulated') },
+    { label: t('admin.kpi.bookingCommission'), value: money(data.local?.totalCommissionPaise ?? 0), sub: t('bookings.completedShort', { count: data.local?.completedBookings ?? 0 }) },
   ];
 
   const attention = [

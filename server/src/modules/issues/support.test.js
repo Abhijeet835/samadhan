@@ -120,7 +120,7 @@ describe('Duplicate detection — POST /api/issues', () => {
     expect(res.body.error.code).toBe('DUPLICATE_FOUND');
     const existing = res.body.error.existingIssue;
     expect(String(existing._id)).toBe(String(original._id));
-    expect(existing.category).toBe('STREETLIGHT');
+    expect(existing.category).toBe('PUBLIC_FACILITIES');
     expect(existing.fundPaise).toBe(500);
     expect(existing.supporterCount).toBe(1);
     expect(Number.isInteger(existing.distanceM)).toBe(true);

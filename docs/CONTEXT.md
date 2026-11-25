@@ -10,10 +10,10 @@ Samadhan is an intermediate-level college prototype — **not a production gover
 
 | Mode | Purpose | Core loop |
 | --- | --- | --- |
-| **Global** | Public civic problems | Report an issue for a simulated ₹5 → neighbours add +1 support for ₹1 → the community fund unlocks a ₹200 Spotlight campaign and a ₹500 formal Escalation |
-| **Local** | Verified nearby helpers | Choose a service category → discover admin-verified helpers sorted by distance → tap Connect to reveal Call/WhatsApp → leave a review after a real connection |
+| **Global** | Public civic & social problems | Report a **Social Explosion** or **Pool Funds** issue across India (State/UT → City/Area) with dynamic **SMALL / MEDIUM / LARGE** thresholds → citizens support or pool funds atomically → threshold triggers public social campaigns (Instagram/X + shareable page) or community-funded resolution → track **who solved it** (Government / NGO / Private Company + partner recognition) |
+| **Local** | Local service marketplace | Service Providers register and list services across 7 categories (Cab & Auto, General Stores, Garage & Mechanics, Sweets & Bakery, Plumbers & Electricians, Appliance Repair, Other Local Services; NO Medical Help) → Consumers discover by category & location and book directly → Providers manage booking lifecycle (`PENDING → ACCEPTED → IN_PROGRESS → COMPLETED`) → simulated wallet settles payment, provider payout & platform commission |
 
-A single account system (Citizen / Helper / Admin), a simulated wallet with a full ledger, bilingual UI, notifications and an admin dashboard are shared by both modes.
+A single account system (`CONSUMER` / `PROVIDER` / `ADMIN`, with legacy `CITIZEN`/`HELPER` automatically mapped), a simulated wallet with a full ledger, bilingual EN/HI UI, notifications and an admin dashboard are shared by both modes.
 
 ### Mandatory product disclaimers
 
@@ -97,30 +97,16 @@ samadhan/
 
 ---
 
-## 5. Tier engine
+## 5. Dynamic Importance Thresholds & Global Issue Types
 
-Thresholds come from the `settings` collection:
+Global issues support two distinct modes (`issueType`):
+- **`SOCIAL_EXPLOSION`:** Public awareness and collective pressure issues (e.g., broken roads, sewage, public infrastructure, stray animal safety, lack of IITs/AIIMS). Dynamic supporter thresholds depend on `importance` (`SMALL` / `MEDIUM` / `LARGE`) configured in `settings`. Reaching the threshold triggers public explosion campaigns for **X (Twitter)** and **Instagram** (plus shareable OG pages `/i/:id`).
+- **`POOL_FUNDS`:** Community-funded resolution issues (e.g., injured stray dog rescue & treatment, road patch repair, local improvement projects). Tracks `fundingGoalPaise`, `fundPaise`, donor contributions, itemized fund utilization (`fundUtilization`), responsible organization/person (`responsibleOrg`), and final resolution.
 
-| Mode | Tier 1 — Spotlight | Tier 2 — Escalate |
-| --- | --- | --- |
-| Normal | ₹200 (`20000` paise) | ₹500 (`50000` paise) |
-| Demo | ₹20 (`2000` paise) | ₹50 (`5000` paise) |
+Location hierarchy: `India → State / Union Territory (all 28 States + 8 UTs) → Area / City`.
+Resolution tracking: Every issue tracks `resolution` (`isResolved`, `solverType` = `GOVERNMENT | NGO | PRIVATE_ORG | COMMUNITY`, `organizationName`, `departmentOrLead`, `resolutionDetails`, `impactSummary`, `promotion` for NGOs/private orgs).
 
-After a payment commits, `checkTiers(issueId)` claims each eligible tier atomically:
-
-```js
-Issue.findOneAndUpdate(
-  { _id: issueId, tiersReached: { $ne: tier } },
-  { $addToSet: { tiersReached: tier }, $max: { tier } },
-  { new: true }
-);
-```
-
-Only a non-null result may run tier side effects. Tier actions run after the payment transaction and are failure-isolated: a failed email or webhook must never roll back a payment. Failures are logged and exposed to Admin retry.
-
-**Tier 1:** four bilingual social posts (X ≤ 280 chars including URL, Instagram, Facebook, WhatsApp) with the matched authority handle, notify reporter and supporters, add to Trending, write an audit log, fire the optional n8n/Telegram hook.
-
-**Tier 2:** formal escalation email to the authority (or `SIMULATED` dispatch log when SMTP is empty), stronger social bundle, feature on the landing page, unlock the Next Steps Appeal Card, notify supporters, audit log, optional n8n hook.
+After a payment/support commits, `checkTiers(issueId)` (and threshold check) claims threshold unlocks atomically (`{ _id, thresholdReached: { $ne: true } }` / `tiersReached`). Only the single winning request runs side effects (social campaign generation, notifications, audit logs). Side effects are failure-isolated.
 
 ---
 
@@ -148,19 +134,14 @@ Invalid transitions must throw a structured error, not silently update the docum
 
 Before creating an issue (unless `force === true`), run `$geoNear` on same-category issues that are not `CLOSED` / `REJECTED` and were created in the last 30 days, within **100 metres**. If found, return HTTP 409 with `{ code: 'DUPLICATE_FOUND', existingIssue }`; the UI offers “Support for ₹1” or “This is different”.
 
-### Local helpers
+### Local service marketplace
 
-- Fixed 9 categories (NO Medical): PLUMBER, ELECTRICIAN, CAB_DRIVER, HOUSE_CLEANING, LOCKSMITH, CARPENTER, PAINTER, PACKERS_MOVERS, GROCERY_DELIVERY. Cab/Auto is a phone directory only (no booking/fares). Local Mode is FREE — no wallet fees.
-- Search only `verificationStatus: 'VERIFIED'`, `isHidden: false`, matching category.
-- `$geoNear` radius: 2 / 5 / 10 km, default **5 km**; default sort nearest, optional top-rated. Search ALSO respects each helper's own `radiusKm` (a helper serving 2 km is hidden from a seeker 4 km away even with a 10 km search).
-- Phone numbers never appear in search results or public profiles. `POST /helpers/:id/connect` logs a connection and only then returns `{ phone, whatsappUrl, safetyNoteKey }` — `safetyNoteKey` is a translatable i18n key (`local.safetyNote`). The seeker's phone is never exposed.
-- Connect limit: **10 per rolling 24 h** per seeker. A repeat connect to the same helper within 24 h re-reveals the phone without a new row, quota or count. `connectCount` counts DISTINCT seekers (first-ever pair only). Race-safe: insert first, count the window, delete + 429 if over.
-- Sample helpers (`isSample: true`, seeded) return `whatsappUrl: null`; the UI disables Call/WhatsApp with a "demo number" notice.
-- One editable review per seeker–helper pair, allowed only after a connection exists. `ratingAvg`/`ratingCount` are recomputed by aggregation after every create/edit (never incremental).
-- Re-verification: a VERIFIED helper changing phone, categories, serviceLocation or displayName resets to PENDING; other fields never reset it.
-- Three non-dismissed flags from distinct users automatically hide the helper for admin review; admin unhide dismisses existing flags.
+- 7 marketplace categories (NO Medical Help): `CAB_AUTO`, `GENERAL_STORE`, `GARAGE_MECHANIC`, `SWEETS_BAKERY`, `PLUMBER_ELECTRICIAN`, `APPLIANCE_REPAIR`, `OTHER_LOCAL` (legacy category keys mapped transparently).
+- Providers can register (`VERIFIED` or `PENDING` admin verification), list pricing (`basePricePaise` + `priceHint`), and manage incoming bookings (`PENDING → ACCEPTED → IN_PROGRESS → COMPLETED` or `REJECTED`/`CANCELLED`).
+- Consumers can browse all verified providers by category, Indian State/City, or GPS distance, reveal contact on Connect (10/24 h rate-limited), book services directly, track bookings, and review after booking/connection.
+- **Platform commission:** On booking completion (`COMPLETED`), an atomic MongoDB transaction charges the consumer wallet (or settles the booking fee), calculates `commissionPaise` using `settings.platformCommissionPercent`, credits the provider wallet (`BOOKING_PAYOUT`), and records the platform commission cleanly.
 - Free text (displayName, bio, priceHint, review comments) refuses phone-like digit runs and URLs (`CONTACT_IN_TEXT`).
-- Public helper location privacy (Phase 8A): search, public profile and connected-list responses round `serviceLocation.coordinates` to 3 decimals (≈110 m) and omit the street `address` (city/state/pincode kept). Owner dashboard/PATCH and admin responses keep exact data. Distance is computed from exact coordinates.
+- Public provider location privacy: search and public profile responses round `serviceLocation.coordinates` to 3 decimals (≈110 m) and omit street `address` (city/state/pincode kept). Owner dashboard/PATCH and active bookings keep necessary details.
 
 ---
 

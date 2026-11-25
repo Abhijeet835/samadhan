@@ -30,8 +30,13 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['CITIZEN', 'HELPER', 'ADMIN'],
-      default: 'CITIZEN',
+      enum: ['CONSUMER', 'PROVIDER', 'ADMIN'],
+      default: 'CONSUMER',
+      set: (value) => {
+        if (value === 'CITIZEN') return 'CONSUMER';
+        if (value === 'HELPER') return 'PROVIDER';
+        return value;
+      },
     },
     language: {
       type: String,

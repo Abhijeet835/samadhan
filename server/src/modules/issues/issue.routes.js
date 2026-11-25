@@ -13,8 +13,10 @@ import {
   listIssuesQuerySchema,
   mapQuerySchema,
   paginationQuerySchema,
+  resolveIssueSchema,
   supportIssueSchema,
   transitionIssueSchema,
+  utilizationSchema,
 } from './issue.schema.js';
 
 const router = express.Router();
@@ -22,6 +24,8 @@ const router = express.Router();
 // Literal paths MUST be registered before "/:issueId" so the param route
 // never swallows them.
 router.get('/meta', issueController.getMeta);
+router.get('/stats/locations', issueController.locationStats);
+router.get('/stats/partners', issueController.partners);
 router.get('/mine', authenticate, validate(paginationQuerySchema, 'query'), issueController.mine);
 router.get(
   '/mine/supported',
@@ -53,6 +57,8 @@ router.get(
   issueController.supporters,
 );
 router.post('/:issueId/transition', authenticate, validate(transitionIssueSchema), issueController.transition);
+router.post('/:issueId/resolve', authenticate, validate(resolveIssueSchema), issueController.resolveIssue);
+router.post('/:issueId/utilization', authenticate, validate(utilizationSchema), issueController.addUtilization);
 router.post('/:issueId/flag', authenticate, rateLimit({ windowMs: 60_000, max: 20 }), validate(issueFlagSchema), issueController.flag);
 
 export default router;

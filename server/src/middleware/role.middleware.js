@@ -1,11 +1,18 @@
 import { apiError } from '../utils/apiResponse.js';
 
+function normalizeRole(role) {
+  if (role === 'CITIZEN') return 'CONSUMER';
+  if (role === 'HELPER') return 'PROVIDER';
+  return role;
+}
+
 /**
  * Authorize user based on required roles
  * Must be used AFTER authenticate middleware
- * @param  {...string} allowedRoles - Array of allowed roles (e.g., 'ADMIN', 'HELPER')
+ * @param  {...string} allowedRoles - Array of allowed roles (e.g., 'ADMIN', 'PROVIDER')
  */
 export function authorize(...allowedRoles) {
+  const normalizedAllowed = new Set(allowedRoles.map(normalizeRole));
   return (req, res, next) => {
     if (!req.user) {
       return res
@@ -13,7 +20,7 @@ export function authorize(...allowedRoles) {
         .json(apiError('UNAUTHORIZED', 'Authentication required'));
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!normalizedAllowed.has(normalizeRole(req.user.role))) {
       return res
         .status(403)
         .json(
@@ -35,9 +42,15 @@ export function authorize(...allowedRoles) {
 export const requireAdmin = authorize('ADMIN');
 
 /**
- * Check if user is helper or admin
+ * Check if user is provider or admin
  */
-export const requireHelper = authorize('HELPER', 'ADMIN');
+export const requireProvider = authorize('PROVIDER', 'ADMIN');
+export const requireHelper = requireProvider;
+
+/**
+ * Check if user is consumer or admin
+ */
+export const requireConsumer = authorize('CONSUMER', 'ADMIN');
 
 /**
  * Check resource ownership

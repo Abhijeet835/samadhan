@@ -8,18 +8,67 @@ import { generateBundle } from '../social/social.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 
 /**
- * Race-safe tier claims. Called AFTER a payment transaction commits — never
- * inside it. Each tier is claimed with ONE conditional update whose filter
- * contains the threshold and status checks (no stale read). Only a non-null
- * result runs that tier's side effects; a call may claim both tiers.
- *
- * Returns { claimedTiers, done }: claims are awaited, side effects run in the
- * background (HTTP must not wait for SMTP/n8n). Tests await `done`.
+ * Race-safe Dynamic Importance Threshold & Public Explosion engine.
+ * Called AFTER a payment/support transaction commits — never inside it.
+ * Atomically claims `explosionTriggered` when a Social Explosion issue meets
+ * its SMALL/MEDIUM/LARGE supporter threshold or a Pool Funds issue meets its
+ * funding goal, then triggers awareness campaigns (Instagram/X) & notifications.
  */
 export async function checkTiers(issueId) {
   const thresholds = await getEffectiveTierThresholds();
   const claimedTiers = [];
+  let explosionClaimed = false;
 
+  const doc = await Issue.findById(issueId).lean();
+  if (doc && doc.status !== 'REJECTED' && !doc.explosionTriggered) {
+    const isPool = doc.issueType === 'POOL_FUNDS';
+    const reached = isPool
+      ? (doc.fundingGoalPaise > 0 && doc.fundPaise >= doc.fundingGoalPaise)
+      : (doc.supporterCount >= (doc.thresholdTarget || 5));
+
+    if (reached) {
+      const filter = {
+        _id: issueId,
+        status: { $ne: 'REJECTED' },
+        explosionTriggered: { $ne: true },
+        ...(isPool
+          ? { $expr: { $gte: ['$fundPaise', '$fundingGoalPaise'] } }
+          : { $expr: { $gte: ['$supporterCount', '$thresholdTarget'] } }),
+      };
+      const claimed = await Issue.findOneAndUpdate(
+        filter,
+        {
+          $set: { explosionTriggered: true, explosionTriggeredAt: new Date() },
+        },
+        { returnDocument: 'after' },
+      );
+      if (claimed) {
+        explosionClaimed = true;
+        try {
+          await AuditLog.create({
+            action: isPool ? 'POOL_GOAL_REACHED' : 'EXPLOSION_TRIGGERED',
+            issueId,
+            fundPaiseSnapshot: claimed.fundPaise,
+            meta: {
+              issueType: claimed.issueType,
+              importance: claimed.importance,
+              thresholdTarget: claimed.thresholdTarget,
+              fundingGoalPaise: claimed.fundingGoalPaise,
+              supporterCount: claimed.supporterCount,
+            },
+          });
+          const authority = await matchAuthority(claimed);
+          if (authority) {
+            await Issue.updateOne({ _id: issueId }, { $set: { authorityId: authority._id } });
+          }
+        } catch (error) {
+          console.error('[threshold] claim-time audit/authority step failed:', error.message);
+        }
+      }
+    }
+  }
+
+  // Also preserve atomic fund-threshold claim compatibility when fundPaise crosses settings thresholds.
   for (const tier of [1, 2]) {
     const threshold = tier === 1 ? thresholds.tier1Paise : thresholds.tier2Paise;
     const updated = await Issue.findOneAndUpdate(
@@ -37,9 +86,8 @@ export async function checkTiers(issueId) {
       { returnDocument: 'after' },
     );
     if (!updated) continue;
-    claimedTiers.push(tier);
+    if (!claimedTiers.includes(tier)) claimedTiers.push(tier);
 
-    // Claim-time work is failure-isolated: it must never break the payment.
     try {
       await AuditLog.create({
         action: 'TIER_CLAIMED',
@@ -48,7 +96,7 @@ export async function checkTiers(issueId) {
         fundPaiseSnapshot: updated.fundPaise,
         meta: { threshold },
       });
-      if (tier === 1) {
+      if (tier === 1 && !updated.authorityId) {
         const authority = await matchAuthority(updated);
         if (authority) {
           await Issue.updateOne({ _id: issueId }, { $set: { authorityId: authority._id } });
@@ -59,19 +107,18 @@ export async function checkTiers(issueId) {
     }
   }
 
-  // Dispatch rows are created at claim time; the unique index dedupes.
   const rows = [];
   try {
-    if (claimedTiers.length) {
+    const bundleTiers = new Set(claimedTiers);
+    if (explosionClaimed) bundleTiers.add(1);
+    if (bundleTiers.size) {
       const issue = await Issue.findById(issueId).lean();
-      for (const tier of claimedTiers) {
+      for (const tier of bundleTiers) {
         if (tier === 1) {
           rows.push(await ensureDispatchRow({ issueId, tier, channel: 'N8N_WEBHOOK', authorityId: issue.authorityId ?? null }));
-          // Phase 6: social posts + trending
         } else {
           rows.push(await ensureDispatchRow({ issueId, tier, channel: 'EMAIL', authorityId: issue.authorityId ?? null }));
           rows.push(await ensureDispatchRow({ issueId, tier, channel: 'N8N_WEBHOOK', authorityId: issue.authorityId ?? null }));
-          // Phase 6: stronger social bundle + landing feature + appeal card unlock
         }
       }
     }
@@ -80,17 +127,22 @@ export async function checkTiers(issueId) {
   }
 
   const done = (async () => {
-    // SOCIAL_BUNDLE step: only the claim winner reaches this path.
-    for (const tier of claimedTiers) {
+    const bundleTiers = new Set(claimedTiers);
+    if (explosionClaimed) bundleTiers.add(1);
+    if (explosionClaimed) {
       try {
-        const bundle = await generateBundle({ issueId, tier });
-        await bundle.done;
+        const issue = await Issue.findById(issueId).select('reporterId title issueType').lean();
+        const supporterIds = await IssueSupport.find({ issueId }).distinct('userId');
+        await notifyUsers({
+          userIds: [issue?.reporterId, ...supporterIds],
+          type: issue?.issueType === 'POOL_FUNDS' ? 'POOL_GOAL_REACHED' : 'EXPLOSION_TRIGGERED',
+          payload: { issueId: String(issueId), title: String(issue?.title ?? '').slice(0, 120) },
+          dedupeKey: `explosion:${issueId}`,
+        });
       } catch (error) {
-        console.error('[tiers] social bundle failed:', error.message);
+        console.error('[threshold] notification failed:', error.message);
       }
     }
-    // NOTIFY step (Phase 8A): reporter + distinct supporters, exactly once per
-    // tier thanks to the per-user dedupeKey. Failure-isolated.
     for (const tier of claimedTiers) {
       try {
         const issue = await Issue.findById(issueId).select('reporterId title').lean();
@@ -105,6 +157,14 @@ export async function checkTiers(issueId) {
         console.error('[tiers] notification failed:', error.message);
       }
     }
+    for (const tier of bundleTiers) {
+      try {
+        const bundle = await generateBundle({ issueId, tier });
+        await bundle.done;
+      } catch (error) {
+        console.error('[tiers] social bundle failed:', error.message);
+      }
+    }
     for (const row of rows) {
       try {
         await runDispatchRow(row._id);
@@ -114,10 +174,11 @@ export async function checkTiers(issueId) {
     }
   })();
 
-  return { claimedTiers, done };
+  return { claimedTiers, explosionClaimed, done };
 }
 
-/** Admin re-check after thresholds change — already-claimed tiers stay claimed. */
+export const checkIssueThreshold = checkTiers;
+
 export async function recheckTiers(issueId) {
   return checkTiers(issueId);
 }

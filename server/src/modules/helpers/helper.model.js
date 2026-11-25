@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
-import { LOCAL_CATEGORIES, VERIFICATION_STATUSES } from './helper.constants.js';
+import { LOCAL_CATEGORIES, VERIFICATION_STATUSES, normalizeLocalCategory } from './helper.constants.js';
+import { normalizeIndianState } from '../../constants/indiaLocations.js';
 
 const helperSchema = new mongoose.Schema(
   {
@@ -13,11 +14,13 @@ const helperSchema = new mongoose.Schema(
       type: [String],
       enum: LOCAL_CATEGORIES,
       required: true,
+      set: (vals) => [...new Set((vals ?? []).map(normalizeLocalCategory))],
       validate: { validator: (v) => v.length >= 1 && v.length <= 4, message: 'Choose 1 to 4 categories' },
     },
     experienceYears: { type: Number, default: 0, min: 0, max: 60 },
     bio: { type: String, required: true, trim: true, minlength: 20, maxlength: 600 },
     priceHint: { type: String, default: '', trim: true, maxlength: 80 },
+    basePricePaise: { type: Number, default: 29900, min: 100, max: 5000000 },
     serviceLocation: {
       type: { type: String, enum: ['Point'], default: 'Point' },
       coordinates: {
@@ -30,7 +33,7 @@ const helperSchema = new mongoose.Schema(
       },
       address: String,
       city: String,
-      state: String,
+      state: { type: String, set: normalizeIndianState },
       pincode: String,
     },
     radiusKm: { type: Number, default: 5, min: 1, max: 25 },
@@ -40,6 +43,8 @@ const helperSchema = new mongoose.Schema(
     ratingAvg: { type: Number, default: 0, min: 0, max: 5 },
     ratingCount: { type: Number, default: 0, min: 0 },
     connectCount: { type: Number, default: 0, min: 0 }, // DISTINCT seekers ever
+    bookingCount: { type: Number, default: 0, min: 0 }, // completed bookings
+    totalEarningsPaise: { type: Number, default: 0, min: 0 },
     flagCount: { type: Number, default: 0, min: 0 }, // non-dismissed flags
     isHidden: { type: Boolean, default: false },
     isSample: { type: Boolean, default: false },

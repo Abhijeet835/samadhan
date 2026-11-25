@@ -8,11 +8,11 @@
 
 |Item|Value|
 |---|---|
-|**Phases complete**|0–9 ALL COMPLETE (incl. 7.1, 8A/8B, 9A/9B)|
+|**Phases complete**|0–9 ALL COMPLETE (incl. 7.1, 8A/8B, 9A/9B, 9C polish)|
 |**Next phase**|None — prototype complete; see Known Gaps for production work|
-|**Server tests**|142/142 passing (`cd server && npm test`)|
+|**Server tests**|148/148 passing (`cd server && npm test`)|
 |**Client tests**|18/18 passing (`cd client && npm test`)|
-|**i18n parity**|`en.json` / `hi.json` 817/817 keys (`npm run i18n:audit` PASS)|
+|**i18n parity**|`en.json` / `hi.json` 1104/1104 keys (`npm run i18n:audit` PASS)|
 |**Dev servers**|API `http://localhost:5000/api/health` · Client `http://localhost:5173`|
 |**Seed admin (local dev only)**|`admin@samadhan.local` / `Admin@12345` (from `npm run seed:admin`)|
 |**Git**|Phases 0–9B committed on `main`|
@@ -627,6 +627,91 @@
 Hindi walkthrough of 10 key screens · 360 px responsive pass · keyboard-only pass ·
 offline/online draft test · install PWA · Lighthouse PWA + Accessibility ·
 `npm run demo:reset` twice (idempotent) · `npm run verify` · deploy per DEPLOYMENT.md.
+
+---
+
+## v3 Platform Redesign & Audit Overhaul ✅
+
+**Completed:** 2026-11-25
+
+### Audit, PII & Build Fixes
+- [x] Full audit report completed and prioritized by severity
+- [x] Scrubbed personal identifiers from documentation folders and rewrote Git commit authors on `main` to `Samadhan Demo <demo@samadhan.local>`; `npm run check:secrets` clean
+- [x] Fixed `HelperSearchPage.jsx` infinite location load loop & enabled GPS-optional nationwide browsing; preserved category param on List/Map toggle
+- [x] Fixed `api.js` automatic 401 refresh-token retry interceptor and bilingual i18n errors in `AuthContext.jsx`, `templates.js`, `AdminIssuesPage.jsx`, `AdminIssueDetailPage.jsx`, `AdminSettingsPage.jsx`
+- [x] Fixed Mongoose cold-start `2dsphere` `$geoNear` race via `Issue.init()` retry guard in `findDuplicate()` and normalized legacy categories in `matchAuthority`, `getTrending`, and `patchCategories`
+- [x] Split Vite bundle chunks (`react`, `i18n`, `icons`, `maps`, `charts`); resolved all chunk size warnings
+
+### Roles, Local Bookings & Platform Commission
+- [x] Replaced user roles with `CONSUMER` and `PROVIDER` (while normalizing legacy `CITIZEN`/`HELPER` transparently) and added 1-click demo login cards on `/login` (`consumer@samadhan.local`, `provider@samadhan.local`, `admin@samadhan.local`)
+- [x] Redesigned Local Mode around 7 daily categories (`CAB_AUTO`, `GENERAL_STORE`, `GARAGE_MECHANIC`, `SWEETS_BAKERY`, `PLUMBER_ELECTRICIAN`, `APPLIANCE_REPAIR`, `OTHER_LOCAL` — no medical help) with GPS + State/City/Search filtering
+- [x] Added full `bookings` module (`POST /api/bookings`, `/mine`, `/provider`, `/:bookingId`, `/:bookingId/transition`): atomic payment hold (`BOOKING_PAYMENT`), full lifecycle (`PENDING → ACCEPTED → IN_PROGRESS → COMPLETED | REJECTED | CANCELLED`), configurable `platformCommissionPercent` settlement (`BOOKING_PAYOUT` + `AuditLog`), atomic cancellation refunds (`BOOKING_REFUND`), and admin dashboard commission KPIs
+
+### Global Mode: Dynamic Limits, Pool Funds, Resolution & India States
+- [x] Replaced Spotlight/Escalation UI terminology with `SOCIAL_EXPLOSION` (dynamic `SMALL=5 / MEDIUM=15 / LARGE=30` supporter limits from `settings`) and `POOL_FUNDS` (goal-based crowdfunding, variable contributions, itemized `fundUtilization`, and `responsibleParty`)
+- [x] Added full 28 Indian States + 8 Union Territories hierarchy (`indiaLocations.js`), `GET /api/issues/stats/locations`, `/states` State & Partner Explorer page, and state/area filters
+- [x] Added issue solver & NGO/private promotion tracking (`POST /api/issues/:issueId/resolve`, `GET /api/issues/stats/partners`, `ResolutionCard`) across Government, NGO, Private Org, and Community resolutions
+- [x] Redesigned landing page (removed grid background and preview cards; added clean Global vs Local entry cards + interactive progressive tabs) and updated Navigation/Tabs/CSS design system with EN/HI parity
+
+### Demo Seed & Verification
+- [x] Upgraded `npm run demo:reset` & `verify:data`: seeded consumers, providers, admin, 30 local listings, 9 bookings, 18 global issues (Social Explosion & Pool Funds across SMALL/MEDIUM/LARGE, solved by Govt/NGO/Private Org, threshold reached & in-progress)
+- [x] Added `server/src/modules/bookings/bookings.test.js` covering roles, booking lifecycle, commissions, refunds, dynamic limits, Pool Funds utilization, resolution promotion, and all 36 States/UTs stats
+- [x] Updated `docs/API.md` and `docs/PROGRESS.md`
+
+### Manual Test Checklist (v3 Overhaul)
+1. Start server (`cd server && npm run dev`) & client (`cd client && npm run dev`) after `cd server && npm run demo:reset`
+2. Visit `/` → confirm clean canvas, two distinct mode entry cards (Global Civic & Local Marketplace), and EN/हिंदी switcher
+3. Visit `/login` → use **Demo Consumer** (`consumer@samadhan.local` / `Demo@12345`), **Demo Provider** (`provider@samadhan.local` / `Demo@12345`), or **Admin** (`admin@samadhan.local` / `Admin@12345`)
+4. In **Local Mode** (`/local`, `/local/search`): filter across the 7 categories by State/City or GPS, open a provider card/profile, create a booking (`Book Service`), verify wallet debit, switch to Demo Provider `/local/dashboard`, accept → complete booking, confirm payout minus commission & admin commission metrics (`/admin`)
+5. In **Global Mode** (`/issues`, `/states`, `/report`): filter by state, importance (`SMALL`/`MEDIUM`/`LARGE`), type (`SOCIAL_EXPLOSION`/`POOL_FUNDS`), view dynamic progress meters, `ResolutionCard` + NGO/company promotion, and contribute to a Pool Funds campaign or mark an issue resolved
+6. Toggle **EN / हिंदी** across Landing, Auth, Feed, State Explorer, Issue Detail, Report Wizard, Local Search, Provider Dashboard, and Admin Panel
+
+---
+
+## Phase 9C: Notification, Pool Funds & Marketplace UX polish ✅
+
+**Completed:** 2026-11-25
+
+### Backend
+- [x] Added `HELPER_NEW_CONNECT` notification (first-ever connect only) with masked `seekerName` and dedupe key `connect:<connectionId>`
+- [x] `PATCH /api/notifications/:id/read` and `POST /api/notifications/read-all` now return `unreadCount` so the bell can clear without another round trip
+- [x] Provider dashboard connections now include `_id` and accept `?limit=50` for the Contacts tab
+
+### Frontend
+- [x] Removed the backend health badge and the 112 emergency banner; every "112" string is gone from `client/src`
+- [x] Replaced per-component notification polling with one shared `NotificationsProvider`; bell, notifications page, mark-read and new-notification toast now share one unread count
+- [x] Added notification deep links (`HELPER_NEW_CONNECT` → `/local/dashboard?tab=contacts`)
+- [x] Provider dashboard: URL-driven tabs, "Who contacted you" Contacts tab with masked names, last-24 h "New" badges, new-contact count, and auto-refresh when unread count increases
+- [x] Pool Funds: plain-language "How this Pool Fund works" guide, pooled/spent/remaining summary, contribution-dialog explainer with goal/raised/remaining line, report-wizard pool hint, and a correct "spending already logged" status
+- [x] Fixed the issue-detail tier badge so Pool Funds show "Goal Reached" only when the funding goal is actually reached
+- [x] Seeded 8 verified providers around BIT Mesra / PMC, Ranchi (helper100–helper107) and added a one-click "Demo: BIT Mesra, Ranchi" location button
+- [x] Fixed marketplace category labels in EN/HI and added all new keys in both locales (i18n audit allowlist updated for `HELPER_NEW_CONNECT`)
+
+### Documentation
+- [x] Updated `docs/API.md` (notification return fields, `HELPER_NEW_CONNECT`, dashboard connection shape)
+- [x] Updated `docs/PROGRESS.md`
+
+### Verification
+|Gate|Result|
+|---|---|
+|`cd server && npm test`|PASS — 148/148|
+|`cd client && npm test`|PASS — 18/18|
+|`cd client && npm run i18n:audit`|PASS — 1104/1104 keys, EN/HI parity|
+|`cd client && npm run lint:a11y`|PASS|
+|`cd client && npm run check-sw`|PASS|
+|`cd client && npm run build`|PASS (PWA precache 46 entries)|
+|`cd server && npm run check:env`|PASS — 42 server + 1 client vars|
+|`cd server && npm run check:secrets`|PASS — 114 tracked files clean|
+|`cd server && npm run verify:data`|PASS — wallets/issues/helpers/bookings invariants|
+|`node server/scripts/smoke.mjs http://localhost:5000 http://localhost:5173`|PASS — 9/9 checks|
+
+### Manual Test Checklist (Phase 9C)
+1. Sign in as `provider@samadhan.local` / `Demo@12345`; click the bell → **Mark all read** → badge and page count both become 0.
+2. As `consumer@samadhan.local`, open `/local`, click **Demo: BIT Mesra, Ranchi** → 8 verified providers appear within 0–3.1 km; category filter and Map view work.
+3. Connect with a Mesra provider → provider receives a toast/bell item; `/local/dashboard?tab=contacts` lists the masked seeker with a **New** badge.
+4. As consumer, open a Pool Funds issue → read the 3-step guide and pooled/spent/remaining figures; open **Contribute funds** → dialog explains where the money stays and shows goal/raised/remaining.
+5. Switch EN ↔ हिंदी on Home, Local, notifications, provider Contacts and Pool Funds → no raw keys or missing text.
+6. Confirm no backend online/offline badge and no 112 emergency banner anywhere.
 
 ---
 

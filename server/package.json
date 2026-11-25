@@ -17,7 +17,7 @@
     "job:autoclose": "node src/scripts/run-autoclose.js",
     "seed:helpers": "node src/seed/seedHelpers.js",
     "seed:demo": "node src/seed/seedDemo.js",
-    "demo:reset": "node src/seed/authorities.seed.js && node src/seed/seedHelpers.js && node src/seed/seedDemo.js --reset && node src/seed/seedDemo.js && node src/scripts/demo-mode.js on && node src/scripts/verify-data.js",
+    "demo:reset": "node src/seed/authorities.seed.js && node src/seed/seedDemo.js --reset && node src/seed/seedHelpers.js && node src/seed/seedDemo.js && node src/scripts/demo-mode.js on && node src/scripts/verify-data.js",
     "verify:data": "node src/scripts/verify-data.js",
     "check:env": "node scripts/check-env-example.mjs",
     "check:secrets": "node scripts/secret-scan.mjs",

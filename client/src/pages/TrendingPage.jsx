@@ -93,7 +93,7 @@ export default function TrendingPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {issues.map((issue) => (
                 <div key={issue._id} className="relative">
-                  <IssueCard issue={issue} thresholds={meta?.thresholds} />
+                  <IssueCard issue={issue} />
                   {typeof issue.totalReach === 'number' && issue.totalReach > 0 && (
                     <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-slate-900/85 px-2 py-0.5 text-[10px] font-bold text-teal-300 backdrop-blur">
                       <TrendingUp className="h-3 w-3" aria-hidden="true" />

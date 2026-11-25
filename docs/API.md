@@ -940,7 +940,7 @@ Protected. Register ONE helper profile (unique userId → `409 HELPER_PROFILE_EX
 
 ### `GET /api/helpers/me/dashboard` · `PATCH /api/helpers/me`
 
-Protected, owner-only. No profile → `404 HELPER_PROFILE_NOT_FOUND` (client redirects to `/local/register`). Dashboard returns the profile **including phone**, stats, privacy-safe connections (`seekerName: "FirstName L."` + connectedAt only) and reviews. PATCH updates owner fields only; changing phone/categories/serviceLocation/displayName on a VERIFIED helper resets it to PENDING (response reflects this); comparison is normalised (coordinates rounded to 5 decimals, undefined ≡ '', categories sorted) so re-sending unchanged values never resets. A REJECTED helper changing any of those fields **or bio** is a resubmission → PENDING with `rejectionReason` cleared. isAvailable/priceHint/radiusKm/photoUrl never reset verification.
+Protected, owner-only. No profile → `404 HELPER_PROFILE_NOT_FOUND` (client redirects to `/local/register`). Dashboard returns the profile **including phone**, stats, privacy-safe connections (`_id`, `seekerName: "FirstName L."`, `connectedAt` only; `?limit=50` supported by the client Contacts tab) and reviews. PATCH updates owner fields only; changing phone/categories/serviceLocation/displayName on a VERIFIED helper resets it to PENDING (response reflects this); comparison is normalised (coordinates rounded to 5 decimals, undefined ≡ '', categories sorted) so re-sending unchanged values never resets. A REJECTED helper changing any of those fields **or bio** is a resubmission → PENDING with `rejectionReason` cleared. isAvailable/priceHint/radiusKm/photoUrl never reset verification.
 
 ### `GET /api/helpers/mine/connected`
 
@@ -978,14 +978,16 @@ Public, rate-limited 60/min/IP. A bounded, PII-free map projection. Query: `west
 
 ### Notifications (all protected; a user only touches own rows)
 
-Model: `userId, type, payload (PII-free), dedupeKey?, readAt, createdAt`. Indexes `(userId,readAt,createdAt:-1)`, unique `(userId,dedupeKey)` partial on string, TTL 90 days. Types: TIER_1_REACHED, TIER_2_REACHED, ISSUE_STATUS_CHANGED, ISSUE_REJECTED, ISSUE_AUTHORITY_REPLY, ISSUE_PLATFORM_CREDIT, HELPER_VERIFIED, HELPER_REJECTED, HELPER_AUTO_HIDDEN, HELPER_UNHIDDEN, HELPER_REVERIFICATION_REQUIRED, HELPER_NEW_REVIEW.
+Model: `userId, type, payload (PII-free), dedupeKey?, readAt, createdAt`. Indexes `(userId,readAt,createdAt:-1)`, unique `(userId,dedupeKey)` partial on string, TTL 90 days. Types: TIER_1_REACHED, TIER_2_REACHED, ISSUE_STATUS_CHANGED, ISSUE_REJECTED, ISSUE_AUTHORITY_REPLY, ISSUE_PLATFORM_CREDIT, HELPER_VERIFIED, HELPER_REJECTED, HELPER_AUTO_HIDDEN, HELPER_UNHIDDEN, HELPER_REVERIFICATION_REQUIRED, HELPER_NEW_REVIEW, HELPER_NEW_CONNECT.
+
+`HELPER_NEW_CONNECT` fires only on a provider's **first-ever** connect from a seeker, with masked `seekerName` and dedupe `connect:<connectionId>`; the client deep-links it to `/local/dashboard?tab=contacts`.
 
 `notifyUsers` is failure-isolated, always after commit. Hooks: tier claim winner → reporter + supporters (dedupe `tier:<issueId>:<tier>`); transition → reporter + supporters minus actor (dedupe `status:<rowId>`), REJECTED → each payer with their own `refundPaise`; helper verify/reject/unhide/auto-hide/reverify/new-review.
 
 - `GET /api/notifications` (rateLimit 120/min) — `page, limit≤50, unreadOnly` → `{ items, unreadCount, pagination }`
 - `GET /api/notifications/unread-count` → `{ unreadCount }`
-- `PATCH /api/notifications/:id/read` — idempotent; foreign/unknown → `404 NOTIFICATION_NOT_FOUND`
-- `POST /api/notifications/read-all` → `{ modifiedCount }` (own rows only)
+- `PATCH /api/notifications/:id/read` — idempotent; foreign/unknown → `404 NOTIFICATION_NOT_FOUND`; returns `{ unreadCount }`
+- `POST /api/notifications/read-all` → `{ modifiedCount, unreadCount }` (own rows only)
 
 ### Helper public-location privacy (8A)
 
@@ -1323,6 +1325,59 @@ Update social publish mode.
 |400|`INVALID_IMAGE_TYPE`|Uploaded file is not JPEG/PNG/WebP|
 |502|`UPLOAD_FAILED`|Cloudinary rejected the upload|
 |503|`CLOUDINARY_NOT_CONFIGURED`|Server has no Cloudinary credentials configured|
+|404|`BOOKING_NOT_FOUND`|Local service booking does not exist|
+|409|`CANNOT_BOOK_SELF`|Providers cannot book their own service listing|
 |500|`INTERNAL_SERVER_ERROR`|Unexpected server error|
+
+---
+
+## v3 Overhaul Endpoints (Roles, Local Bookings + Commission, Dynamic Limits, Resolution & India States)
+
+### Roles & Auth Normalization
+- Roles are `CONSUMER`, `PROVIDER`, and `ADMIN` (legacy `CITIZEN` maps to `CONSUMER`, `HELPER` maps to `PROVIDER`).
+- `POST /api/auth/register` accepts `role: "CONSUMER" | "PROVIDER"`.
+
+### Global Mode — Dynamic Importance, Pool Funds, Resolution & India States
+
+- **Issue categories (`ISSUE_CATEGORIES`):** `BROKEN_ROADS`, `SEWAGE_DRAINAGE`, `GARBAGE_MANAGEMENT`, `WATER_ELECTRICITY`, `STRAY_ANIMALS`, `EDUCATION_INFRA`, `PUBLIC_FACILITIES`, `OTHER` (legacy slugs accepted & normalized automatically).
+- **Issue types (`issueType`):** `SOCIAL_EXPLOSION` (dynamic threshold by `importance`: `SMALL` = 5, `MEDIUM` = 15, `LARGE` = 30 from `settings`) and `POOL_FUNDS` (goal-based crowdfunding with variable `amountPaise` contributions).
+
+#### `GET /api/issues/meta`
+Public. Returns enabled `categories`, `issueTypes`, `importanceLevels`, `reportFeePaise`, `supportFeePaise`, `importanceThresholds`, `poolGoalDefaults`, and `states` (all 28 Indian States + 8 Union Territories).
+
+#### `GET /api/issues/stats/locations?state=<optionalState>`
+Public. Returns overview counts (`totalIssues`, `resolvedCount`, `thresholdReachedCount`, `socialExplosionCount`, `poolFundsCount`, `statesWithIssues`, `totalStatesAndUts: 36`), full `states` array (all 36 States & UTs with localized EN/HI names and stats), and `areas` breakdown by city/state.
+
+#### `GET /api/issues/stats/partners`
+Public. Returns NGOs, private organizations, and government departments credited for resolving issues (`organizationName`, `solverType`, `solvedCount`, `states`, promotion tagline/badge/link, and `recentIssues`).
+
+#### `POST /api/issues/:issueId/resolve`
+Protected (`reporter` or `ADMIN`). Records who solved the issue (`solverType`: `GOVERNMENT | NGO | PRIVATE_ORG | COMMUNITY`, `organizationName`, `departmentOrLead`, `resolutionDetails`, `impactSummary`, `promotion`), transitions open issues to `RESOLVED`, and logs a `RESOLUTION_RECORDED` timeline update.
+
+#### `POST /api/issues/:issueId/utilization`
+Protected (`reporter` or `ADMIN`). Appends an itemized `fundUtilization` expenditure entry (`item`, `amountPaise`, `note`) and optional `responsibleParty` details to a `POOL_FUNDS` issue.
+
+### Local Mode — Marketplace, Nationwide Filters, Bookings & Platform Commission
+
+- **Local categories (`LOCAL_CATEGORIES`):** `CAB_AUTO`, `GENERAL_STORE`, `GARAGE_MECHANIC`, `SWEETS_BAKERY`, `PLUMBER_ELECTRICIAN`, `APPLIANCE_REPAIR`, `OTHER_LOCAL` (NO Medical help — emergencies call 112).
+
+#### `GET /api/helpers/search`
+Public. Supports optional `lat`/`lng`/`radiusKm` (GPS nearby) OR nationwide `state`, `city`, `q`, `category`, `sort` (`nearest | rating | price_asc | bookings`) filters. Omits phone numbers and rounds coordinates publicly.
+
+#### `POST /api/bookings`
+Protected (`CONSUMER` or `PROVIDER` booking another provider). Atomically debits `amountPaise` (`BOOKING_PAYMENT` ledger row), calculates `commissionPaise` from `settings.platformCommissionPercent` (default 10%), creates booking (`status: "PENDING"`, `paymentStatus: "HELD"`), and notifies provider (`BOOKING_CREATED`). Idempotent by `idempotencyKey`.
+
+#### `GET /api/bookings/mine` & `GET /api/bookings/provider`
+Protected. Lists consumer bookings or provider booking requests + completed payout/commission summary (`completedCount`, `grossPaise`, `commissionPaise`, `netPayoutPaise`).
+
+#### `GET /api/bookings/:bookingId`
+Protected (booking consumer, provider, or `ADMIN`). Returns booking details (`404 BOOKING_NOT_FOUND`).
+
+#### `POST /api/bookings/:bookingId/transition`
+Protected.
+- Consumer can transition `PENDING | ACCEPTED -> CANCELLED` (atomically refunds `BOOKING_REFUND`).
+- Provider/Admin can transition `PENDING -> ACCEPTED | REJECTED` and `ACCEPTED -> IN_PROGRESS | COMPLETED | CANCELLED` and `IN_PROGRESS -> COMPLETED | CANCELLED`.
+- `REJECTED` / `CANCELLED` atomically refunds `amountPaise` (`paymentStatus: "REFUNDED"`).
+- `COMPLETED` atomically settles `providerPayoutPaise` (`BOOKING_PAYOUT`), increments provider `bookingCount` and `totalEarningsPaise`, and records `BOOKING_COMPLETED_COMMISSION` in `auditLogs` (surfaced in `GET /api/admin/dashboard` `data.local`).
 
 Every new endpoint must be documented here before phase handoff.

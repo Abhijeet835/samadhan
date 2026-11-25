@@ -44,6 +44,7 @@ const report = async (u, ov = {}) => {
 beforeAll(async () => {
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   await mongoose.connect(replSet.getUri());
+  await Issue.init();
   await ensureDefaultSettings();
 }, 300_000);
 afterAll(async () => { await mongoose.disconnect(); await replSet?.stop(); });
@@ -141,13 +142,14 @@ describe('Notifications', () => {
   });
 
   it('tier winner fans out to reporter + supporters exactly once under 20 concurrent claims', async () => {
-    await Settings.updateOne({ key: 'tier1Paise' }, { $set: { value: 600 } });
+    await Settings.updateOne({ key: 'tier1Paise' }, { $set: { value: 1000 } });
     const reporter = await funded();
     const issue = await report(reporter);
     const supporters = await Promise.all([funded(), funded()]);
     for (const s of supporters) {
       await request(app).post(`/api/issues/${issue._id}/support`).set('Authorization', `Bearer ${tokenFor(s)}`).send({ idempotencyKey: `s:${Math.random()}` });
     }
+    await Settings.updateOne({ key: 'tier1Paise' }, { $set: { value: 700 } });
     const results = await Promise.all(Array.from({ length: 20 }, () => checkTiers(issue._id)));
     await Promise.all(results.map((r) => r.done));
     await new Promise((r) => setTimeout(r, 100));

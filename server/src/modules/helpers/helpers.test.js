@@ -153,7 +153,7 @@ describe('$geoNear search', () => {
     await makeHelper({ displayName: 'Search Rejected', verificationStatus: 'REJECTED' });
     await makeHelper({ displayName: 'Search Hidden', isHidden: true });
     await makeHelper({ displayName: 'Search Out', serviceLocation: { type: 'Point', coordinates: [77.75, 13.1], city: 'Bengaluru' } });
-    await makeHelper({ displayName: 'Search Wrong Cat', categories: ['ELECTRICIAN'] });
+    await makeHelper({ displayName: 'Search Wrong Cat', categories: ['CAB_AUTO'] });
 
     const res = await search('radiusKm=5&category=PLUMBER&limit=50');
     expect(res.status).toBe(200);

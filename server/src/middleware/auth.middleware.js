@@ -1,4 +1,4 @@
-import { verifyToken } from '../utils/jwt.util.js';
+import { verifyToken, normalizeRole } from '../utils/jwt.util.js';
 import { apiError } from '../utils/apiResponse.js';
 import User from '../modules/users/user.model.js';
 
@@ -45,7 +45,7 @@ export async function authenticate(req, res, next) {
     req.user = {
       userId: user._id.toString(),
       email: user.email,
-      role: user.role,
+      role: normalizeRole(user.role),
       name: user.name,
     };
 
@@ -80,7 +80,7 @@ export async function optionalAuth(req, res, next) {
         req.user = {
           userId: user._id.toString(),
           email: user.email,
-          role: user.role,
+          role: normalizeRole(user.role),
           name: user.name,
         };
       }

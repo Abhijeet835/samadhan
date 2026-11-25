@@ -17,7 +17,7 @@ export default function Logo({ className }) {
         <Landmark className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
         <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-civic-amber/90 blur-[2px]" />
       </span>
-      <span className="text-lg font-extrabold tracking-tight">{t('app.name')}</span>
+      <span className="hidden text-lg font-extrabold tracking-tight sm:inline">{t('app.name')}</span>
     </Link>
   );
 }

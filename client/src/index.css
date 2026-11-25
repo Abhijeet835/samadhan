@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 210 33% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 224 71% 40%;
+    --primary: 221 76% 42%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
+    --secondary: 210 36% 95%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
+    --muted: 210 32% 95%;
+    --muted-foreground: 215 18% 44%;
+    --accent: 210 32% 94%;
     --accent-foreground: 222 47% 11%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 224 71% 40%;
-    --radius: 0.75rem;
+    --border: 214 28% 89%;
+    --input: 214 28% 88%;
+    --ring: 221 76% 42%;
+    --radius: 0.85rem;
   }
 
   * {
@@ -56,6 +56,47 @@
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
+
+  /* Programmatic heading/landmark focus should stay invisible to sighted users */
+  h1[tabindex='-1']:focus,
+  h1[tabindex='-1']:focus-visible,
+  main[tabindex='-1']:focus,
+  main[tabindex='-1']:focus-visible,
+  #main-content:focus,
+  #main-content:focus-visible {
+    @apply outline-none ring-0 ring-offset-0;
+    box-shadow: none;
+  }
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-2xl border border-border/80 bg-card shadow-soft transition-all duration-200;
+  }
+
+  .surface-card-hover {
+    @apply rounded-2xl border border-border/80 bg-card shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lift;
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/80 transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20;
+  }
+
+  .tab-bar {
+    @apply flex gap-1 rounded-xl border border-border/70 bg-muted/70 p-1;
+  }
+
+  .tab-pill {
+    @apply flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all;
+  }
+
+  .tab-pill-active {
+    @apply bg-card text-foreground shadow-sm;
+  }
+
+  .tab-pill-idle {
+    @apply text-muted-foreground hover:text-foreground;
+  }
 }
 
 @layer utilities {
@@ -65,13 +106,6 @@
 
   .text-pretty {
     text-wrap: pretty;
-  }
-
-  .bg-grid-slate {
-    background-image:
-      linear-gradient(to right, rgba(15, 23, 42, 0.055) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(15, 23, 42, 0.055) 1px, transparent 1px);
-    background-size: 32px 32px;
   }
 
   .safe-bottom {

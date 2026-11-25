@@ -12,6 +12,8 @@ export function saveDraft(userId, draft) {
       version: VERSION,
       savedAt: Date.now(),
       category: draft.category ?? '',
+      issueType: draft.issueType ?? 'SOCIAL_EXPLOSION',
+      importance: draft.importance ?? 'MEDIUM',
       title: draft.title ?? '',
       description: draft.description ?? '',
       urgency: draft.urgency ?? '',

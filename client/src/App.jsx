@@ -14,6 +14,7 @@ import ReportPage from '@/pages/ReportPage';
 import MyActivityPage from '@/pages/MyActivityPage';
 import AdminDispatchPage from '@/pages/AdminDispatchPage';
 import TrendingPage from '@/pages/TrendingPage';
+import StateExplorerPage from '@/pages/StateExplorerPage';
 import AdminSocialPage from '@/pages/AdminSocialPage';
 import AdminHelpersPage from '@/pages/AdminHelpersPage';
 import LocalLayout from '@/features/local/LocalLayout';
@@ -27,6 +28,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import RouteFocus from '@/components/RouteFocus';
 import NotFoundPage from '@/pages/NotFoundPage';
 import { AuthProvider } from '@/context/AuthContext';
+import { NotificationsProvider } from '@/features/notifications/useNotifications';
 
 const GlobalMapPage = lazy(() => import('@/pages/GlobalMapPage'));
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
@@ -44,26 +46,28 @@ export default function App() {
     <ErrorBoundary>
     <BrowserRouter>
       <AuthProvider>
-        <RouteFocus />
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              borderRadius: '12px',
-              background: '#0F172A',
-              color: '#F8FAFC',
-              fontSize: '14px',
-            },
-          }}
-        />
+        <NotificationsProvider>
+          <RouteFocus />
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                borderRadius: '12px',
+                background: '#0F172A',
+                color: '#F8FAFC',
+                fontSize: '14px',
+              },
+            }}
+          />
 
-        <Routes>
+          <Routes>
           <Route element={<SiteLayout />}>
             <Route index element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/issues" element={<IssuesPage />} />
+            <Route path="/states" element={<StateExplorerPage />} />
             <Route path="/trending" element={<TrendingPage />} />
             <Route path="/map" element={<Suspense fallback={<MapFallback />}><GlobalMapPage /></Suspense>} />
             <Route path="/notifications" element={<ProtectedRoute><Suspense fallback={<MapFallback />}><NotificationsPage /></Suspense></ProtectedRoute>} />
@@ -144,6 +148,7 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
+        </NotificationsProvider>
       </AuthProvider>
     </BrowserRouter>
     </ErrorBoundary>

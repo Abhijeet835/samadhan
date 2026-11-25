@@ -57,10 +57,11 @@ export async function markRead(userId, id) {
     doc.readAt = new Date();
     await doc.save();
   }
-  return doc;
+  const unreadCount = await Notification.countDocuments({ userId, readAt: null });
+  return { notification: doc, unreadCount };
 }
 
 export async function markAllRead(userId) {
   const result = await Notification.updateMany({ userId, readAt: null }, { $set: { readAt: new Date() } });
-  return { modifiedCount: result.modifiedCount ?? 0 };
+  return { modifiedCount: result.modifiedCount ?? 0, unreadCount: 0 };
 }

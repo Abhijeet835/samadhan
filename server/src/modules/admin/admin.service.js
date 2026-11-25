@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import Issue, { ISSUE_CATEGORIES } from '../issues/issue.model.js';
+import Issue, { ISSUE_CATEGORIES, normalizeIssueCategory } from '../issues/issue.model.js';
 import IssueSupport from '../issues/issueSupport.model.js';
 import IssueUpdate from '../issues/issueUpdate.model.js';
 import IssueFlag from './issueFlag.model.js';
@@ -15,7 +15,7 @@ import Authority from '../authorities/authority.model.js';
 import AuditLog from '../tiers/auditLog.model.js';
 import DispatchLog from '../dispatch/dispatchLog.model.js';
 import SocialPost from '../social/socialPost.model.js';
-import { LOCAL_CATEGORIES } from '../helpers/helper.constants.js';
+import { LOCAL_CATEGORIES, normalizeLocalCategory } from '../helpers/helper.constants.js';
 import { transitionIssue, getAllowedTransitions } from '../issues/issue.service.js';
 import { checkTiers } from '../tiers/tier.service.js';
 import { getSetting } from '../wallet/wallet.service.js';
@@ -188,7 +188,11 @@ const SAFE_USER = '_id name email phone role isActive activeMode language create
 export async function listAdminUsers({ page = 1, limit = 20, q, role, isActive }) {
   const filter = {};
   if (q) { const r = new RegExp(esc(q), 'i'); filter.$or = [{ name: r }, { email: r }, { phone: r }]; }
-  if (role) filter.role = role;
+  if (role) {
+    if (role === 'CONSUMER' || role === 'CITIZEN') filter.role = { $in: ['CONSUMER', 'CITIZEN'] };
+    else if (role === 'PROVIDER' || role === 'HELPER') filter.role = { $in: ['PROVIDER', 'HELPER'] };
+    else filter.role = role;
+  }
   if (isActive !== undefined && isActive !== '') filter.isActive = isActive === 'true';
   const [rows, total] = await Promise.all([
     User.find(filter).select(SAFE_USER).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
@@ -242,6 +246,13 @@ const SETTINGS_SPEC = {
   supportFeePaise: { type: 'int', min: 100, max: 10000 },
   tier1Paise: { type: 'int', min: 100 },
   tier2Paise: { type: 'int', min: 100 },
+  smallIssueThreshold: { type: 'int', min: 1, max: 1000 },
+  mediumIssueThreshold: { type: 'int', min: 2, max: 5000 },
+  largeIssueThreshold: { type: 'int', min: 3, max: 20000 },
+  smallPoolGoalPaise: { type: 'int', min: 1000, max: 50000000 },
+  mediumPoolGoalPaise: { type: 'int', min: 2000, max: 50000000 },
+  largePoolGoalPaise: { type: 'int', min: 5000, max: 50000000 },
+  platformCommissionPercent: { type: 'int', min: 0, max: 50 },
   signupCreditPaise: { type: 'int', min: 100, max: 100000 },
   duplicateRadiusM: { type: 'int', min: 10, max: 1000 },
   duplicateDays: { type: 'int', min: 1, max: 180 },
@@ -303,13 +314,15 @@ export async function getCategories() {
 export async function patchCategories({ disabledIssueCategories, disabledHelperCategories }, actor) {
   const patch = {};
   if (disabledIssueCategories) {
-    if (disabledIssueCategories.includes('OTHER')) throw new ApiError('Cannot disable OTHER.', 400, 'VALIDATION_ERROR');
-    if (disabledIssueCategories.length >= ISSUE_CATEGORIES.length) throw new ApiError('Cannot disable all categories.', 400, 'VALIDATION_ERROR');
-    patch.disabledIssueCategories = disabledIssueCategories;
+    const normalizedIssueCats = [...new Set(disabledIssueCategories.map(normalizeIssueCategory))];
+    if (normalizedIssueCats.includes('OTHER')) throw new ApiError('Cannot disable OTHER.', 400, 'VALIDATION_ERROR');
+    if (normalizedIssueCats.length >= ISSUE_CATEGORIES.length) throw new ApiError('Cannot disable all categories.', 400, 'VALIDATION_ERROR');
+    patch.disabledIssueCategories = normalizedIssueCats;
   }
   if (disabledHelperCategories) {
-    if (disabledHelperCategories.length >= LOCAL_CATEGORIES.length) throw new ApiError('Cannot disable all categories.', 400, 'VALIDATION_ERROR');
-    patch.disabledHelperCategories = disabledHelperCategories;
+    const normalizedLocalCats = [...new Set(disabledHelperCategories.map(normalizeLocalCategory))];
+    if (normalizedLocalCats.length >= LOCAL_CATEGORIES.length) throw new ApiError('Cannot disable all categories.', 400, 'VALIDATION_ERROR');
+    patch.disabledHelperCategories = normalizedLocalCats;
   }
   const before = { disabledIssueCategories: await getSetting('disabledIssueCategories'), disabledHelperCategories: await getSetting('disabledHelperCategories') };
   const session = await mongoose.startSession();

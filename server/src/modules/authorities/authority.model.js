@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import { ISSUE_CATEGORIES } from '../issues/issue.model.js';
+import { ISSUE_CATEGORIES, normalizeIssueCategory } from '../issues/issue.model.js';
 
 const authoritySchema = new mongoose.Schema(
   {
@@ -11,6 +11,7 @@ const authoritySchema = new mongoose.Schema(
       type: [String],
       enum: [...ISSUE_CATEGORIES, '*'],
       required: true,
+      set: (vals) => [...new Set((vals ?? []).map((v) => (v === '*' ? '*' : normalizeIssueCategory(v))))],
       validate: {
         validator: (value) => value.length > 0,
         message: 'At least one category is required',

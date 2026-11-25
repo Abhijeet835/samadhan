@@ -5,7 +5,7 @@
 
 import mongoose from 'mongoose';
 import SocialPost from './socialPost.model.js';
-import Issue from '../issues/issue.model.js';
+import Issue, { normalizeIssueCategory } from '../issues/issue.model.js';
 import Authority from '../authorities/authority.model.js';
 import AuditLog from '../tiers/auditLog.model.js';
 import { getSetting } from '../wallet/wallet.service.js';
@@ -497,11 +497,11 @@ export async function getIssuePosts(issueId) {
  */
 export async function getTrending({ page = 1, limit = 20, category, city } = {}) {
   const filter = {
-    tier: { $gte: 1 },
+    $or: [{ explosionTriggered: true }, { tier: { $gte: 1 } }],
     status: { $nin: ['REJECTED', 'CLOSED'] },
   };
 
-  if (category) filter.category = category;
+  if (category) filter.category = normalizeIssueCategory(category);
   if (city) {
     const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     filter['location.city'] = new RegExp(escapedCity, 'i');

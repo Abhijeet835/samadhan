@@ -56,7 +56,7 @@ export default function AdminIssuesPage() {
                 <li key={issue._id}>
                   <Link to={`/admin/issues/${issue._id}`} className="block rounded-xl bg-white p-4 ring-1 ring-slate-200 hover:ring-slate-300">
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={issue.status} /><TierBadge tier={issue.tier} />
+                      <StatusBadge status={issue.status} /><TierBadge explosionTriggered={issue.explosionTriggered} issueType={issue.issueType} />
                       {issue.flagCount > 0 && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">{issue.flagCount} flags</span>}
                       {(issue.failedDispatch + issue.failedSocial) > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">{issue.failedDispatch + issue.failedSocial} failed</span>}
                       <span className="ml-auto text-sm font-bold tabular-nums text-slate-900">{formatPaise(issue.fundPaise, i18n.language)}</span>

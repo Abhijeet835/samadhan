@@ -55,7 +55,7 @@ export default function AdminUsersPage() {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('admin.searchUsers')} className={inputClass} />
         <select value={role} onChange={(e) => setRole(e.target.value)} className={inputClass}>
           <option value="">{t('admin.allRoles')}</option>
-          {['CITIZEN', 'HELPER', 'ADMIN'].map((r) => <option key={r} value={r}>{r}</option>)}
+          {['CONSUMER', 'PROVIDER', 'ADMIN'].map((r) => <option key={r} value={r}>{t(`auth.role.${r.toLowerCase()}`)}</option>)}
         </select>
       </div>
 

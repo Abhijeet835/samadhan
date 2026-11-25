@@ -5,7 +5,15 @@ import {
   createTokenPayload,
   generateAccessToken,
   generateRefreshToken,
+  normalizeRole,
 } from '../../utils/jwt.util.js';
+
+function sanitizeUser(user) {
+  const userObject = typeof user.toObject === 'function' ? user.toObject() : { ...user };
+  delete userObject.password;
+  userObject.role = normalizeRole(userObject.role);
+  return userObject;
+}
 
 const SALT_ROUNDS = 10;
 
@@ -50,11 +58,8 @@ export async function registerUser(userData) {
   const refreshToken = generateRefreshToken(payload);
 
   // Return user without password
-  const userObject = user.toObject();
-  delete userObject.password;
-
   return {
-    user: userObject,
+    user: sanitizeUser(user),
     accessToken,
     refreshToken,
   };
@@ -95,11 +100,8 @@ export async function loginUser(email, password) {
   const refreshToken = generateRefreshToken(payload);
 
   // Return user without password
-  const userObject = user.toObject();
-  delete userObject.password;
-
   return {
-    user: userObject,
+    user: sanitizeUser(user),
     accessToken,
     refreshToken,
   };
@@ -117,7 +119,7 @@ export async function getUserProfile(userId) {
     throw new Error('USER_NOT_FOUND');
   }
 
-  return user.toObject();
+  return sanitizeUser(user);
 }
 
 /**
@@ -159,7 +161,7 @@ export async function updateUserProfile(userId, updates) {
 
   await user.save();
 
-  return user.toObject();
+  return sanitizeUser(user);
 }
 
 /**
@@ -204,7 +206,7 @@ export async function switchMode(userId, mode) {
   user.activeMode = mode;
   await user.save();
 
-  return user.toObject();
+  return sanitizeUser(user);
 }
 
 /**

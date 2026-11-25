@@ -2,25 +2,26 @@ import { lazy, Suspense } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { ArrowLeft, MapPin, Wallet } from 'lucide-react';
+import { ArrowLeft, MapPin } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CategoryBadge, StatusBadge } from '@/features/global/StatusBadge';
+import { CategoryBadge, ImportanceBadge, IssueTypeBadge, StatusBadge } from '@/features/global/StatusBadge';
 import Timeline from '@/features/global/Timeline';
 import TransitionPanel from '@/features/global/TransitionPanel';
 import FundMeter from '@/features/global/FundMeter';
 import SupportPanel from '@/features/global/SupportPanel';
 import SupportersList from '@/features/global/SupportersList';
-import EscalationCard from '@/features/global/EscalationCard';
 import OfficialCampaigns from '@/features/global/OfficialCampaigns';
 import HelpSpread from '@/features/global/HelpSpread';
-import WhyRupee from '@/features/global/WhyRupee';
 import TierBadge from '@/features/global/TierBadge';
+import ResolutionCard from '@/features/global/ResolutionCard';
+import PoolUtilizationCard from '@/features/global/PoolUtilizationCard';
+import PoolFundsGuide from '@/features/global/PoolFundsGuide';
 import { useIssueDetail } from '@/features/global/useIssueDetail';
-import { useIssueMeta } from '@/features/global/useIssueMeta';
 import { formatTxnDate, formatPaise } from '@/features/wallet/money';
 import IssueFlagDialog from '@/features/global/IssueFlagDialog';
+import { getStateLabel } from '@/lib/indiaLocations';
 
 const IssueLocationMap = lazy(() => import('@/features/maps/IssueLocationMap'));
 
@@ -28,7 +29,6 @@ export default function IssueDetailPage() {
   const { issueId } = useParams();
   const { t, i18n } = useTranslation();
   const { data, loading, error, transition, reload, applySupport } = useIssueDetail(issueId);
-  const meta = useIssueMeta();
 
   async function handleTransition(status, note) {
     const result = await transition(status, note);
@@ -41,10 +41,10 @@ export default function IssueDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 py-8" aria-label={t('common.loading')}>
-        <div className="mx-auto max-w-3xl space-y-4 px-4">
+        <div className="mx-auto max-w-4xl space-y-4 px-4">
           <div className="h-8 w-2/3 animate-pulse rounded-lg bg-slate-200" />
-          <div className="h-48 animate-pulse rounded-xl bg-slate-200" />
-          <div className="h-64 animate-pulse rounded-xl bg-slate-100" />
+          <div className="h-48 animate-pulse rounded-2xl bg-slate-200" />
+          <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
         </div>
       </div>
     );
@@ -61,27 +61,32 @@ export default function IssueDetailPage() {
     );
   }
 
-  const { issue, updates, viewer, escalation } = data;
+  const { issue, updates, viewer } = data;
   const location = issue.location ?? {};
+  const stateLabel = getStateLabel(location.state, i18n.language);
+  const fullLoc = ['India', stateLabel, location.city, location.address, location.pincode].filter(Boolean).join(' · ');
+  const showCampaigns = !!issue.explosionTriggered || issue.tier >= 1;
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 pb-36 md:pb-8">
-      <div className="mx-auto max-w-3xl px-4">
+    <div className="min-h-screen bg-slate-50/70 py-8 pb-36 lg:pb-10">
+      <div className="mx-auto max-w-4xl px-4">
         <Link
           to="/issues"
-          className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {t('issues.detail.backToFeed')}
         </Link>
 
         <div className="mb-6">
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
             <StatusBadge status={issue.status} />
+            <IssueTypeBadge issueType={issue.issueType} />
+            <ImportanceBadge importance={issue.importance} />
             <CategoryBadge category={issue.category} />
-            <TierBadge tier={issue.tier} />
+            <TierBadge explosionTriggered={issue.explosionTriggered} issueType={issue.issueType} />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">{issue.title}</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{issue.title}</h1>
           <p className="mt-2 text-sm text-slate-500">
             {t('issues.detail.reportedBy', { name: issue.reporterId?.name ?? '—' })}
             {' · '}
@@ -92,7 +97,7 @@ export default function IssueDetailPage() {
         {issue.photos?.length > 0 && (
           <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {issue.photos.map((url) => (
-              <img key={url} src={url} alt={issue.title} className="h-44 w-full rounded-xl object-cover" />
+              <img key={url} src={url} alt={issue.title} className="h-44 w-full rounded-2xl object-cover" />
             ))}
           </div>
         )}
@@ -101,11 +106,11 @@ export default function IssueDetailPage() {
           <div className="space-y-6 md:col-span-2">
             <Card>
               <CardContent className="pt-6">
-                <p className="whitespace-pre-line text-slate-700">{issue.description}</p>
-                {(location.address || location.city) && (
-                  <p className="mt-4 flex items-start gap-1.5 text-sm text-slate-500">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                    {[location.address, location.city, location.state, location.pincode].filter(Boolean).join(', ')}
+                <p className="whitespace-pre-line leading-relaxed text-slate-700">{issue.description}</p>
+                {fullLoc && (
+                  <p className="mt-4 flex items-start gap-1.5 text-sm font-medium text-slate-600">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                    {fullLoc}
                   </p>
                 )}
                 <div className="mt-4">
@@ -116,8 +121,14 @@ export default function IssueDetailPage() {
               </CardContent>
             </Card>
 
-            {issue.tier >= 1 && <OfficialCampaigns issueId={issue._id} tier={issue.tier} />}
-            {issue.tier >= 1 && <HelpSpread issue={issue} />}
+            <ResolutionCard issue={issue} viewer={viewer} onReload={reload} />
+
+            <PoolFundsGuide issue={issue} />
+
+            <PoolUtilizationCard issue={issue} viewer={viewer} onReload={reload} />
+
+            {showCampaigns && <OfficialCampaigns issueId={issue._id} tier={Math.max(1, issue.tier || 1)} />}
+            {showCampaigns && <HelpSpread issue={issue} />}
 
             <Card>
               <CardHeader>
@@ -136,16 +147,15 @@ export default function IssueDetailPage() {
           <div className="space-y-6">
             <Card>
               <CardContent className="pt-6">
-                <FundMeter
-                  fundPaise={issue.fundPaise}
-                  supporterCount={issue.supporterCount}
-                  thresholds={meta?.thresholds}
-                  tiersReached={issue.tiersReached ?? []}
-                  escalation={escalation}
-                />
+                <FundMeter issue={issue} />
                 {issue.platformCreditPaise > 0 && (
                   <p className="mt-2 text-xs font-medium text-teal-700">
                     {t('issues.detail.includesCredit', { amount: formatPaise(issue.platformCreditPaise, i18n.language) })}
+                  </p>
+                )}
+                {viewer.myContributionPaise > 0 && (
+                  <p className="mt-2 text-xs font-semibold text-primary">
+                    {t('support.myContribution', { amount: formatPaise(viewer.myContributionPaise, i18n.language) })}
                   </p>
                 )}
                 <div className="mt-4">
@@ -157,27 +167,7 @@ export default function IssueDetailPage() {
               </CardContent>
             </Card>
 
-            {issue.tier >= 2 && <EscalationCard escalation={escalation} language={i18n.language} />}
-
-            <WhyRupee compact />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('support.supportersTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <SupportersList key={`${issue._id}-${issue.supporterCount}`} issueId={issue._id} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <Link to="/wallet" className="flex items-center gap-2 text-sm font-medium text-blue-700 hover:underline">
-                  <Wallet className="h-4 w-4" aria-hidden="true" />
-                  {t('issues.detail.walletLink')}
-                </Link>
-              </CardContent>
-            </Card>
+            <SupportersList issueId={issue._id} reloadKey={issue.supporterCount} />
           </div>
         </div>
       </div>

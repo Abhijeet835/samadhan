@@ -25,7 +25,7 @@ export default function LanguageToggle({ className, showIcon = true }) {
       aria-label={t('nav.language')}
     >
       {showIcon ? (
-        <Languages className="ml-1.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+        <Languages className="ml-1.5 hidden h-3.5 w-3.5 text-muted-foreground sm:block" aria-hidden="true" />
       ) : null}
       {LANGUAGES.map((language) => {
         const isActive = currentLanguage === language;
@@ -38,7 +38,7 @@ export default function LanguageToggle({ className, showIcon = true }) {
             onClick={() => changeLanguage(language)}
             aria-pressed={isActive}
             className={cn(
-              'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors sm:text-xs',
+              'rounded-full px-2 py-1 text-[11px] font-semibold transition-colors sm:px-2.5 sm:text-xs',
               isActive
                 ? 'bg-card text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

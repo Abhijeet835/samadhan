@@ -23,7 +23,11 @@ export const registerSchema = z.object({
   phone: z
     .string()
     .regex(phoneRegex, 'Please provide a valid 10-digit Indian mobile number'),
-  role: z.enum(['CITIZEN', 'HELPER']).optional().default('CITIZEN'),
+  role: z
+    .enum(['CONSUMER', 'PROVIDER', 'CITIZEN', 'HELPER'])
+    .optional()
+    .default('CONSUMER')
+    .transform((r) => (r === 'CITIZEN' ? 'CONSUMER' : r === 'HELPER' ? 'PROVIDER' : r)),
   language: z.enum(['en', 'hi']).optional().default('en'),
 });
 

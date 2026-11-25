@@ -1,24 +1,33 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 const TITLES = {
-  '/': 'meta.title', '/issues': 'issues.feed.title', '/trending': 'trending.title',
-  '/map': 'maps.title', '/report': 'report.title', '/wallet': 'wallet.title',
-  '/profile': 'profile.title', '/my-activity': 'myActivity.title', '/notifications': 'notifications.title',
-  '/local': 'local.title', '/local/search': 'local.searchTitle', '/local/register': 'local.registerTitle',
-  '/local/dashboard': 'local.dashboardTitle', '/admin': 'admin.title', '/login': 'auth.login.title', '/register': 'auth.register.title',
+  '/': 'meta.title', '/issues': 'issues.feed.title', '/states': 'states.title',
+  '/trending': 'trending.title', '/map': 'maps.title', '/report': 'report.title',
+  '/wallet': 'wallet.title', '/profile': 'profile.title', '/my-activity': 'myActivity.title',
+  '/notifications': 'notifications.title', '/local': 'local.title', '/local/search': 'local.searchTitle',
+  '/local/register': 'local.registerTitle', '/local/dashboard': 'local.dashboardTitle',
+  '/admin': 'admin.title', '/login': 'auth.login.title', '/register': 'auth.register.title',
 };
 
-/** Per-route document.title + move focus to the page heading on navigation. */
+/** Per-route document.title + move focus to the page heading on route change. */
 export default function RouteFocus() {
   const { pathname } = useLocation();
   const { t, i18n } = useTranslation();
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
     const base = '/' + pathname.split('/').filter(Boolean)[0] || '/';
     const key = TITLES[pathname] ?? TITLES[base] ?? 'meta.title';
     document.title = `${t(key)} · Samadhan`;
+  }, [pathname, t, i18n.language]);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     const main = document.getElementById('main-content');
     if (main) {
       const h = main.querySelector('h1') ?? main;
@@ -26,7 +35,7 @@ export default function RouteFocus() {
       h.focus({ preventScroll: true });
     }
     window.scrollTo(0, 0);
-  }, [pathname, t, i18n.language]);
+  }, [pathname]);
 
   return null;
 }

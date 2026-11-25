@@ -8,6 +8,8 @@ import Connection from '../helpers/connection.model.js';
 import Review from '../helpers/review.model.js';
 import DispatchLog from '../dispatch/dispatchLog.model.js';
 import SocialPost from '../social/socialPost.model.js';
+import Booking from '../bookings/booking.model.js';
+import { getPlatformCommissionSummary } from '../bookings/booking.service.js';
 
 const OPEN = ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'];
 const countMap = (a) => Object.fromEntries(a.map((x) => [x._id, x.n]));
@@ -19,7 +21,7 @@ export async function getDashboard(days = 30) {
   for (let i = days - 1; i >= 0; i -= 1) buckets.push(dayKey(Date.now() - i * 24 * 60 * 60 * 1000));
   const zero = () => Object.fromEntries(buckets.map((b) => [b, 0]));
 
-  const [usersByRole, newUsers, helpersAgg, hiddenHelpers, issuesByStatus, issuesByTier, issuesByCategory, newIssues, openFund, feeAgg, walletAgg, connRange, revRange, pendingHelpers, failedDispatch, failedSocial, flaggedIds, tier1Active, issuesPerDayAgg, feesPerDayAgg, connPerDayAgg] = await Promise.all([
+  const [usersByRole, newUsers, helpersAgg, hiddenHelpers, issuesByStatus, issuesByTier, issuesByCategory, newIssues, openFund, feeAgg, walletAgg, connRange, revRange, pendingHelpers, failedDispatch, failedSocial, flaggedIds, tier1Active, issuesPerDayAgg, feesPerDayAgg, connPerDayAgg, bookingsCount, bookingCommission] = await Promise.all([
     User.aggregate([{ $group: { _id: '$role', n: { $sum: 1 } } }]),
     User.countDocuments({ createdAt: { $gte: since } }),
     Helper.aggregate([{ $group: { _id: '$verificationStatus', n: { $sum: 1 } } }]),
@@ -39,8 +41,10 @@ export async function getDashboard(days = 30) {
     IssueFlag.distinct('issueId', { dismissed: false }),
     Issue.countDocuments({ tier: { $gte: 1 }, status: 'ACTIVE' }),
     Issue.aggregate([{ $match: { createdAt: { $gte: since } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, n: { $sum: 1 } } }]),
-    WalletTxn.aggregate([{ $match: { createdAt: { $gte: since }, type: { $in: ['REPORT_FEE', 'SUPPORT_FEE', 'REFUND'] } } }, { $group: { _id: { day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, type: '$type' }, total: { $sum: '$amountPaise' } } }]),
+    WalletTxn.aggregate([{ $match: { createdAt: { $gte: since }, type: { $in: ['REPORT_FEE', 'SUPPORT_FEE', 'POOL_CONTRIBUTION', 'REFUND'] } } }, { $group: { _id: { day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, type: '$type' }, total: { $sum: '$amountPaise' } } }]),
     Connection.aggregate([{ $match: { createdAt: { $gte: since } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, n: { $sum: 1 } } }]),
+    Booking.countDocuments(),
+    getPlatformCommissionSummary(),
   ]);
 
   const feeMap = Object.fromEntries(feeAgg.map((f) => [f._id, f.total]));
@@ -67,7 +71,7 @@ export async function getDashboard(days = 30) {
     funds: { openFundPaise: openFund[0]?.fund ?? 0, platformCreditPaise: openFund[0]?.credit ?? 0 },
     simulatedRevenue: { grossFeesPaise: gross, refundsPaise: refunds, netPaise: gross - refunds, topupsPaise: feeMap.TOPUP ?? 0, signupCreditsPaise: feeMap.SIGNUP_CREDIT ?? 0 },
     wallet: { totalBalancePaise: walletAgg[0]?.total ?? 0 },
-    local: { connectionsInRange: connRange, reviewsInRange: revRange },
+    local: { connectionsInRange: connRange, reviewsInRange: revRange, totalBookings: bookingsCount, ...bookingCommission },
     attention: { pendingHelperVerifications: pendingHelpers, hiddenHelpers, failedDispatch, failedSocial, flaggedIssues: flaggedIds.length, tier1PlusStillActive: tier1Active },
     series: { issuesPerDay, feesPerDay, connectionsPerDay },
   };
