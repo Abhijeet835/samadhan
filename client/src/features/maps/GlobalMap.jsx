@@ -16,6 +16,7 @@ import { CategoryBadge, StatusBadge } from '@/features/global/StatusBadge';
 import TierBadge from '@/features/global/TierBadge';
 import { formatPaise } from '@/features/wallet/money';
 import { loadLocalLocation } from '@/features/local/constants';
+import { currentLang } from '@/features/global/localizeIssue';
 
 const VIEW_KEY = 'samadhan_map_viewport';
 
@@ -23,7 +24,7 @@ function MoveWatcher({ onMove }) {
   const map = useMapEvents({ moveend: () => onMove(map) });
   useEffect(() => {
     onMove(map);
-  }, []);
+  }, [map, onMove]);
   return null;
 }
 
@@ -49,6 +50,7 @@ function LocateControl({ onLocate }) {
 
 export default function GlobalMap({ category, status, minTier, center }) {
   const { t, i18n } = useTranslation();
+  const lang = currentLang(i18n.language);
   const [items, setItems] = useState([]);
   const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,7 +70,7 @@ export default function GlobalMap({ category, status, minTier, center }) {
       setLoading(true);
       try {
         const res = await api.get('/issues/map', {
-          params: { ...bbox, limit: 200, ...(category ? { category } : {}), ...(status ? { status } : {}), ...(minTier ? { minTier } : {}) },
+          params: { ...bbox, limit: 200, lang, ...(category ? { category } : {}), ...(status ? { status } : {}), ...(minTier ? { minTier } : {}) },
           signal: controller.signal,
         });
         setItems(res.data.items);
@@ -79,7 +81,7 @@ export default function GlobalMap({ category, status, minTier, center }) {
         setLoading(false);
       }
     }, 500);
-  }, [category, status, minTier]);
+  }, [category, status, minTier, lang]);
 
   useEffect(() => () => { abortRef.current?.abort(); clearTimeout(timerRef.current); }, []);
 

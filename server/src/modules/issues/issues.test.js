@@ -317,3 +317,70 @@ describe('transitionIssue — lifecycle state machine', () => {
     expect(asAdmin.body.data.issue.status).toBe('ACKNOWLEDGED');
   });
 });
+
+describe('Bilingual EN/HI separation & shared Global access for Providers', () => {
+  it('separates EN and HI feeds cleanly and projects bilingual issues in the selected language', async () => {
+    const provider = await makeUser({ role: 'PROVIDER' });
+    await ensureWallet(provider._id);
+    const providerToken = tokenFor(provider);
+
+    // Provider can report a Global issue in English-only and bilingual forms
+    const enOnlyRes = await request(app)
+      .post('/api/issues')
+      .set('Authorization', `Bearer ${providerToken}`)
+      .send(issueBody({
+        title: 'Provider-reported English streetlamp outage',
+        description: 'Three lamps along the service road are completely dark after 7 PM.',
+        language: 'en',
+        location: { coordinates: [77.71, 12.91], address: 'Service Road East', city: 'Bengaluru', state: 'Karnataka', pincode: '560037' },
+      }));
+    expect(enOnlyRes.status).toBe(201);
+    expect(enOnlyRes.body.data.issue.issueLang).toBe('en');
+
+    const hiOnlyRes = await request(app)
+      .post('/api/issues')
+      .set('Authorization', `Bearer ${providerToken}`)
+      .send(issueBody({
+        title: 'बिजली के खंभे पर खुला तार खतरा बना रहा है',
+        description: 'मुख्य बाज़ार के पास खंभे से लटकते खुले तारों से राहगीरों को करंट का खतरा बना हुआ है।',
+        language: 'hi',
+        location: { coordinates: [77.78, 12.88], address: 'मुख्य बाज़ार मार्ग', city: 'Ranchi', state: 'Jharkhand', pincode: '834001' },
+      }));
+    expect(hiOnlyRes.status).toBe(201);
+    expect(hiOnlyRes.body.data.issue.issueLang).toBe('hi');
+
+    const bilingualRes = await request(app)
+      .post('/api/issues')
+      .set('Authorization', `Bearer ${providerToken}`)
+      .send(issueBody({
+        title: 'Bilingual drainage blockade near Bus Stand',
+        description: 'Blocked stormwater inlet leaves ankle-deep water outside bus terminal gates daily.',
+        titleHi: 'बस स्टैंड के पास नाली जाम की समस्या',
+        descriptionHi: 'बस टर्मिनल के बाहर बरसाती नाली बंद होने से रोज़ाना जलभराव की समस्या रहती है।',
+        language: 'en',
+        location: { coordinates: [77.82, 12.84], address: 'Terminal Gate 2', city: 'Jaipur', state: 'Rajasthan', pincode: '302001' },
+      }));
+    expect(bilingualRes.status).toBe(201);
+
+    const enFeed = await request(app).get('/api/issues?lang=en&limit=50');
+    expect(enFeed.status).toBe(200);
+    const enTitles = enFeed.body.data.issues.map((i) => i.title);
+    expect(enTitles).toContain('Provider-reported English streetlamp outage');
+    expect(enTitles).toContain('Bilingual drainage blockade near Bus Stand');
+    expect(enTitles).not.toContain('बिजली के खंभे पर खुला तार खतरा बना रहा है');
+
+    const hiFeed = await request(app).get('/api/issues?lang=hi&limit=50');
+    expect(hiFeed.status).toBe(200);
+    const hiTitles = hiFeed.body.data.issues.map((i) => i.title);
+    expect(hiTitles).toContain('बिजली के खंभे पर खुला तार खतरा बना रहा है');
+    expect(hiTitles).toContain('बस स्टैंड के पास नाली जाम की समस्या');
+    expect(hiTitles).not.toContain('Provider-reported English streetlamp outage');
+    expect(hiTitles).not.toContain('Bilingual drainage blockade near Bus Stand');
+
+    // Search matches Hindi titles in lang=hi mode and excludes English-only hits
+    const hiSearch = await request(app).get(`/api/issues?lang=hi&q=${encodeURIComponent('बस स्टैंड')}`);
+    expect(hiSearch.status).toBe(200);
+    expect(hiSearch.body.data.issues).toHaveLength(1);
+    expect(hiSearch.body.data.issues[0].title).toBe('बस स्टैंड के पास नाली जाम की समस्या');
+  });
+});

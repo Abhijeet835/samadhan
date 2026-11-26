@@ -7,13 +7,16 @@ import { Button } from '@/components/ui/button';
 import IssueCard from '@/features/global/IssueCard';
 import { useIssueMeta } from '@/features/global/useIssueMeta';
 import { ISSUE_CATEGORIES } from '@/features/global/constants';
+import { currentLang } from '@/features/global/localizeIssue';
 
 const inputClass =
   'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500';
 
 export default function TrendingPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = currentLang(i18n.language);
   const meta = useIssueMeta();
+  const categoryOptions = meta?.categories?.length ? meta.categories : ISSUE_CATEGORIES;
   const [issues, setIssues] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [category, setCategory] = useState('');
@@ -26,7 +29,7 @@ export default function TrendingPage() {
     setError(false);
     try {
       const res = await api.get('/issues/trending', {
-        params: { page, limit: 12, ...(category ? { category } : {}), ...(city.trim() ? { city: city.trim() } : {}) },
+        params: { page, limit: 12, lang, ...(category ? { category } : {}), ...(city.trim() ? { city: city.trim() } : {}) },
       });
       setIssues((prev) => (append ? [...prev, ...res.data.issues] : res.data.issues));
       setPagination(res.data.pagination);
@@ -35,7 +38,7 @@ export default function TrendingPage() {
     } finally {
       setLoading(false);
     }
-  }, [category, city]);
+  }, [category, city, lang]);
 
   useEffect(() => {
     const id = setTimeout(() => load(1), city ? 350 : 0);
@@ -58,7 +61,7 @@ export default function TrendingPage() {
         <div className="mb-6 flex flex-wrap gap-2">
           <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass} aria-label={t('issues.feed.categoryAll')}>
             <option value="">{t('issues.feed.categoryAll')}</option>
-            {ISSUE_CATEGORIES.map((c) => (
+            {categoryOptions.map((c) => (
               <option key={c} value={c}>{t(`issues.categories.${c}`)}</option>
             ))}
           </select>

@@ -50,10 +50,21 @@ export default function LocalHomePage() {
   const [sort, setSort] = useState(() => (loadLocalLocation() ? 'nearest' : 'rating'));
 
   const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState(LOCAL_CATEGORIES);
   const [pagination, setPagination] = useState(null);
   const [fallbackActive, setFallbackActive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    api.get('/helpers/meta')
+      .then((res) => {
+        if (Array.isArray(res.data?.categories) && res.data.categories.length > 0) {
+          setCategories(res.data.categories);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const hasGeo = Boolean(location && Number.isFinite(location.lat) && Number.isFinite(location.lng));
 
@@ -237,7 +248,7 @@ export default function LocalHomePage() {
             <p className="mt-2 text-sm leading-relaxed text-teal-100/90">{t('local.subtitle')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {user?.role === 'PROVIDER' ? (
+            {(user?.role === 'PROVIDER' || user?.hasHelperProfile) ? (
               <Link
                 to="/local/dashboard"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-teal-900 shadow-sm transition hover:bg-teal-50"
@@ -291,7 +302,7 @@ export default function LocalHomePage() {
           <span className="text-xs font-semibold leading-tight">{t('local.allCategories')}</span>
         </button>
 
-        {LOCAL_CATEGORIES.map((cat) => {
+        {categories.map((cat) => {
           const Icon = CATEGORY_ICONS[cat] ?? Store;
           const active = category === cat;
           return (

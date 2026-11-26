@@ -16,6 +16,10 @@ const categoryField = z
 export const createIssueSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(150).trim(),
   description: z.string().min(20, 'Description must be at least 20 characters').max(2000).trim(),
+  language: z.enum(['en', 'hi']).optional(),
+  issueLang: z.enum(['en', 'hi']).optional(),
+  titleHi: z.string().min(5).max(150).trim().optional(),
+  descriptionHi: z.string().min(20).max(2000).trim().optional(),
   category: categoryField,
   issueType: z.enum(ISSUE_TYPES).optional().default('SOCIAL_EXPLOSION'),
   importance: z.enum(IMPORTANCE_LEVELS).optional().default('MEDIUM'),
@@ -24,6 +28,7 @@ export const createIssueSchema = z.object({
     .object({
       type: z.enum(['GOVERNMENT', 'NGO', 'PRIVATE_ORG', 'INDIVIDUAL', 'NONE']).optional().default('NONE'),
       name: z.string().max(140).trim().optional().default(''),
+      nameHi: z.string().max(140).trim().optional(),
       contactRole: z.string().max(100).trim().optional().default(''),
       note: z.string().max(300).trim().optional().default(''),
     })
@@ -38,7 +43,9 @@ export const createIssueSchema = z.object({
       .describe('[longitude, latitude]'),
     country: z.string().max(60).optional().default('India'),
     address: z.string().max(300).optional().default(''),
+    addressHi: z.string().max(300).optional(),
     city: z.string().max(100).optional().default(''),
+    cityHi: z.string().max(100).optional(),
     state: z.string().max(100).optional().default('').transform(normalizeIndianState),
     pincode: z.string().regex(/^\d{6}$/, 'Pincode must be 6 digits').optional().or(z.literal('')).default(''),
   }),
@@ -57,6 +64,7 @@ export const listIssuesQuerySchema = z.object({
   city: z.string().max(100).optional(),
   resolvedOnly: z.enum(['true', 'false']).optional(),
   thresholdReached: z.enum(['true', 'false']).optional(),
+  lang: z.enum(['en', 'hi']).optional(),
   q: z.string().max(100).optional(),
   sort: z.enum(['latest', 'fund', 'supporters']).default('latest'),
 });
@@ -109,6 +117,7 @@ export const mapQuerySchema = z.object({
   status: z.string().max(120).optional(),
   minTier: z.coerce.number().int().min(0).max(2).optional().default(0),
   limit: z.coerce.number().int().min(1).max(300).optional().default(200),
+  lang: z.enum(['en', 'hi']).optional(),
 });
 
 export const supportIssueSchema = z.object({

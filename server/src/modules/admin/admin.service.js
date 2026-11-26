@@ -33,18 +33,29 @@ const displayName = (name) => {
 };
 
 // ---------- Issues ----------
-export async function listAdminIssues({ page = 1, limit = 20, q, status, tier, category, city, flagged, hasFailedActions, sort = 'newest' }) {
+export async function listAdminIssues({ page = 1, limit = 20, q, status, tier, category, city, flagged, hasFailedActions, exploded, sort = 'newest' }) {
   const filter = {};
-  if (q) filter.title = new RegExp(esc(q), 'i');
+  const and = [];
+  if (q) {
+    const rx = new RegExp(esc(q), 'i');
+    and.push({ $or: [{ title: rx }, { titleHi: rx }, { 'location.city': rx }, { 'location.cityHi': rx }, { 'location.state': rx }] });
+  }
   if (status) filter.status = status;
   if (tier !== undefined && tier !== '') filter.tier = Number(tier);
   if (category) filter.category = category;
-  if (city) filter['location.city'] = new RegExp(`^${esc(city)}$`, 'i');
+  if (city) {
+    const cityRx = new RegExp(`^${esc(city)}$`, 'i');
+    and.push({ $or: [{ 'location.city': cityRx }, { 'location.cityHi': cityRx }] });
+  }
   if (flagged === 'true') filter._id = { $in: await IssueFlag.distinct('issueId', { dismissed: false }) };
   if (hasFailedActions === 'true') {
     const [d, s] = await Promise.all([DispatchLog.distinct('issueId', { status: 'FAILED' }), SocialPost.distinct('issueId', { status: 'FAILED' })]);
     filter._id = { $in: [...new Set([...d, ...s].map(String))] };
   }
+  if (exploded === 'true') {
+    and.push({ $or: [{ explosionTriggered: true }, { tier: { $gte: 1 } }] });
+  }
+  if (and.length) filter.$and = and;
   const sortMap = { newest: { createdAt: -1 }, fund: { fundPaise: -1 }, supporters: { supporterCount: -1 }, tier: { tier: -1, fundPaise: -1 } };
   const [rows, total] = await Promise.all([
     Issue.find(filter).sort(sortMap[sort] ?? sortMap.newest).skip((page - 1) * limit).limit(limit).populate('reporterId', 'name email').lean(),
@@ -58,10 +69,11 @@ export async function listAdminIssues({ page = 1, limit = 20, q, status, tier, c
     SocialPost.aggregate([{ $match: { issueId: { $in: ids }, status: 'FAILED' } }, { $group: { _id: '$issueId', n: { $sum: 1 } } }]).then(toMap),
   ]);
   const items = rows.map((r) => ({
-    _id: r._id, title: r.title, category: r.category, issueType: r.issueType || 'SOCIAL_EXPLOSION',
+    _id: r._id, title: r.title, titleHi: r.titleHi ?? '', language: r.issueLang || r.language || 'en',
+    category: r.category, issueType: r.issueType || 'SOCIAL_EXPLOSION',
     status: r.status, tier: r.tier, explosionTriggered: !!r.explosionTriggered,
     fundPaise: r.fundPaise, platformCreditPaise: r.platformCreditPaise ?? 0, supporterCount: r.supporterCount,
-    flagCount: fc[String(r._id)] ?? 0, city: r.location?.city ?? '', createdAt: r.createdAt,
+    flagCount: fc[String(r._id)] ?? 0, city: r.location?.city ?? '', cityHi: r.location?.cityHi ?? '', createdAt: r.createdAt,
     reporter: r.reporterId ? { _id: r.reporterId._id, name: r.reporterId.name, email: r.reporterId.email } : null,
     failedDispatch: fd[String(r._id)] ?? 0, failedSocial: fs[String(r._id)] ?? 0,
   }));
@@ -268,6 +280,7 @@ export async function getAdminSettings() {
   return {
     settings: Object.entries(SETTINGS_SPEC).map(([key, spec]) => ({ key, value: map[key], ...spec })),
     demoThresholds: { tier1Paise: 2000, tier2Paise: 5000 },
+    demoImportanceThresholds: { SMALL: 3, MEDIUM: 6, LARGE: 12 },
     socialPublishMode: map.socialPublishMode,
   };
 }

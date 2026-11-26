@@ -645,7 +645,7 @@
   "why": {
     "title": "Why ₹5 / ₹1?",
     "body": "Small simulated fees deter spam reports and show real community commitment. If an issue is rejected as invalid, every rupee is refunded.",
-    "official": "Pooled support unlocks official Spotlight social campaigns at ₹200 and formal departmental escalation at ₹500 (₹20 / ₹50 in demo mode).",
+    "official": "Small, medium & large issues trigger Social Explosion campaigns at 25 / 50 / 100 supporters (3 / 6 / 12 in demo mode), while Pool Funds track transparent community spending.",
     "note": "100% simulated paise only — no real money is collected or transferred."
   },
   "trending": {
@@ -691,7 +691,7 @@
     "title": "Discover & book trusted local services.",
     "subtitle": "Browse verified nearby providers across 7 daily categories, book directly, and track completion transparently.",
     "emptySearch": "No verified service providers match your current filters.",
-    "freeNote": "100% free — no wallet fees in Local Mode",
+    "freeNote": "0% commission on free Connect phone unlocks — or book via wallet with live tracking",
     "setLocation": "Set your location to search nearby helpers",
     "locationSet": "Searching near: {{label}}",
     "addressPlaceholder": "Type your area or address…",
@@ -971,8 +971,8 @@
     "feesLimits": "Fees & limits",
     "enabled": "Enabled",
     "saveSettings": "Save settings",
-    "demoBanner": "Demo mode ON — effective thresholds {{t1}} / {{t2}}",
-    "demoThresholdsNote": "Demo thresholds (read-only): ₹{{t1}} / ₹{{t2}}",
+    "demoBanner": "Demo mode ON — importance limits {{limits}} supporters (legacy tiers {{t1}} / {{t2}})",
+    "demoThresholdsNote": "Demo limits (active when Demo mode is ON): {{limits}} supporters · legacy tiers ₹{{t1}} / ₹{{t2}}",
     "socialMode": "Social publish mode",
     "manageSocial": "Manage social",
     "manageAuthorities": "Manage authorities",
@@ -981,6 +981,7 @@
     "localCategories": "Local helper categories",
     "confirmSettings": "Confirm changes",
     "allActions": "All actions",
+    "explodedOnly": "Exploded / Tier 1+ only",
     "simulated": "simulated",
     "kpi": {
       "users": "Users",
@@ -1002,7 +1003,7 @@
       "failedDispatch": "Failed dispatch",
       "failedSocial": "Failed social posts",
       "flaggedIssues": "Flagged issues",
-      "tier1Active": "Tier 1+ still active"
+      "tier1Active": "Exploded / Tier 1+ still active"
     },
     "chart": {
       "issuesPerDay": "Issues per day",

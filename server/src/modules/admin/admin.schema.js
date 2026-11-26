@@ -14,6 +14,7 @@ export const adminIssuesQuerySchema = z.object({
   city: z.string().max(100).optional(),
   flagged: z.enum(['true', 'false']).optional(),
   hasFailedActions: z.enum(['true', 'false']).optional(),
+  exploded: z.enum(['true', 'false']).optional(),
   sort: z.enum(['newest', 'fund', 'supporters', 'tier']).default('newest'),
 });
 

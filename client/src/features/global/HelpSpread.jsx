@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Copy, Download, ExternalLink, Loader2, Megaphone } from 'lucide-react';
@@ -36,6 +36,10 @@ export default function HelpSpread({ issue }) {
   const [lang, setLang] = useState(i18n.language?.startsWith('hi') ? 'hi' : 'en');
   const [downloading, setDownloading] = useState(false);
   const cardRef = useRef(null);
+
+  useEffect(() => {
+    setLang(i18n.language?.startsWith('hi') ? 'hi' : 'en');
+  }, [i18n.language]);
 
   const post = posts.find((p) => p.platform === platform);
   const caption = post ? (lang === 'hi' ? post.captionHi : post.captionEn) : '';

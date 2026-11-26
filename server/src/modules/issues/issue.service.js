@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
 
-import Issue, { ISSUE_CATEGORIES, normalizeIssueCategory } from './issue.model.js';
+import Issue, {
+  ISSUE_CATEGORIES,
+  buildIssueLanguageFilter,
+  hasDevanagari,
+  localizeIssue,
+  normalizeIssueCategory,
+} from './issue.model.js';
 import IssueSupport from './issueSupport.model.js';
 import IssueUpdate from './issueUpdate.model.js';
 import IssueFlag from '../admin/issueFlag.model.js';
@@ -115,7 +121,7 @@ export async function findDuplicate({ category, coordinates }) {
  * A replayed idempotencyKey returns the original issue without charging again.
  */
 export async function createIssue({ reporterId, data }) {
-  const { idempotencyKey, force, ...issueData } = data;
+  const { idempotencyKey, force, language: requestedLang, issueLang: explicitLang, ...issueData } = data;
 
   const disabled = await getSetting('disabledIssueCategories');
   if ((disabled ?? []).includes(issueData.category)) {
@@ -179,7 +185,9 @@ export async function createIssue({ reporterId, data }) {
     : 0;
   const thresholdTarget = issueType === 'POOL_FUNDS'
     ? fundingGoalPaise
-    : (importanceThresholds[importance] ?? 15);
+    : (importanceThresholds[importance] ?? 50);
+  const resolvedLanguage =
+    hasDevanagari(issueData.title) || requestedLang === 'hi' || explicitLang === 'hi' ? 'hi' : 'en';
   const actorRole = normalizeRole(reporterDoc?.role || 'CONSUMER');
 
   let created;
@@ -190,6 +198,7 @@ export async function createIssue({ reporterId, data }) {
         [
           {
             ...issueData,
+            issueLang: resolvedLanguage,
             issueType,
             importance,
             thresholdTarget,
@@ -259,8 +268,16 @@ export async function createIssue({ reporterId, data }) {
 }
 
 function pickAddress(location) {
-  const { country = 'India', address, city, state, pincode } = location;
-  return { country, address, city, state: normalizeIndianState(state), pincode };
+  const { country = 'India', address, addressHi, city, cityHi, state, pincode } = location;
+  return {
+    country,
+    address,
+    ...(addressHi ? { addressHi } : {}),
+    city,
+    ...(cityHi ? { cityHi } : {}),
+    state: normalizeIndianState(state),
+    pincode,
+  };
 }
 
 /**
@@ -430,32 +447,50 @@ export async function listIssues(query) {
     city,
     resolvedOnly,
     thresholdReached,
+    lang,
     q,
     sort = 'latest',
   } = query;
 
   const filter = { status: { $ne: 'REJECTED' } };
+  const andClauses = [];
   if (category) filter.category = normalizeIssueCategory(category);
   if (status && status !== 'REJECTED') filter.status = status;
   if (issueType) filter.issueType = issueType;
   if (importance) filter.importance = importance;
   if (state) filter['location.state'] = new RegExp(`^${escRegex(normalizeIndianState(state))}$`, 'i');
-  if (city) filter['location.city'] = new RegExp(escRegex(city), 'i');
+  if (city) {
+    const cityRx = new RegExp(escRegex(city), 'i');
+    andClauses.push({ $or: [{ 'location.city': cityRx }, { 'location.cityHi': cityRx }] });
+  }
   if (resolvedOnly === 'true') filter.status = { $in: ['RESOLVED', 'CLOSED'] };
   else if (resolvedOnly === 'false') filter.status = { $in: ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'] };
   if (thresholdReached === 'true') filter.explosionTriggered = true;
   else if (thresholdReached === 'false') filter.explosionTriggered = { $ne: true };
 
+  const langClause = lang ? buildIssueLanguageFilter(lang) : null;
+  if (langClause) andClauses.push(langClause);
+
   if (q?.trim()) {
     const rx = new RegExp(escRegex(q.trim()), 'i');
-    filter.$or = [
-      { title: rx },
-      { description: rx },
-      { 'location.city': rx },
-      { 'location.state': rx },
-      { 'resolution.organizationName': rx },
-    ];
+    andClauses.push({
+      $or: [
+        { title: rx },
+        { titleHi: rx },
+        { description: rx },
+        { descriptionHi: rx },
+        { 'location.city': rx },
+        { 'location.cityHi': rx },
+        { 'location.address': rx },
+        { 'location.addressHi': rx },
+        { 'location.state': rx },
+        { 'resolution.organizationName': rx },
+        { 'resolution.organizationNameHi': rx },
+      ],
+    });
   }
+
+  if (andClauses.length) filter.$and = andClauses;
 
   const sortMap = {
     latest: { createdAt: -1 },
@@ -474,7 +509,7 @@ export async function listIssues(query) {
   ]);
 
   return {
-    issues,
+    issues: lang ? issues.map((iss) => localizeIssue(iss, lang)) : issues,
     pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   };
 }
@@ -492,7 +527,7 @@ function cloudinaryThumb(url) {
  * Phase 8A map view: a bounded, public, PII-free projection of existing issues.
  * REJECTED never returned. Optional bbox via $geoWithin Polygon (SW→SE→NE→NW→SW).
  */
-export async function getIssuesMap({ west, south, east, north, category, status, minTier = 0, limit = 200 }) {
+export async function getIssuesMap({ west, south, east, north, category, status, minTier = 0, limit = 200, lang }) {
   const hasBbox = [west, south, east, north].some((v) => v !== undefined);
   if (hasBbox) {
     if ([west, south, east, north].some((v) => v === undefined)) {
@@ -512,6 +547,8 @@ export async function getIssuesMap({ west, south, east, north, category, status,
   const filter = { status: { $in: statuses.length ? statuses : ['ACTIVE', 'ACKNOWLEDGED', 'IN_PROGRESS'] } };
   if (category) filter.category = category;
   if (Number(minTier) > 0) filter.tier = { $gte: Number(minTier) };
+  const langClause = lang ? buildIssueLanguageFilter(lang) : null;
+  if (langClause) filter.$and = [langClause];
   if (hasBbox) {
     filter.location = {
       $geoWithin: {
@@ -527,24 +564,27 @@ export async function getIssuesMap({ west, south, east, north, category, status,
   const docs = await Issue.find(filter)
     .sort({ tier: -1, fundPaise: -1 })
     .limit(cappedLimit + 1)
-    .select('_id title category issueType status tier explosionTriggered fundPaise supporterCount location.coordinates location.city photos')
+    .select('_id title titleHi category issueType status tier explosionTriggered fundPaise supporterCount location.coordinates location.city location.cityHi photos')
     .lean();
 
   const truncated = docs.length > cappedLimit;
-  const items = docs.slice(0, cappedLimit).map((d) => ({
-    _id: d._id,
-    title: d.title,
-    category: d.category,
-    issueType: d.issueType || 'SOCIAL_EXPLOSION',
-    status: d.status,
-    tier: d.tier,
-    explosionTriggered: !!d.explosionTriggered,
-    fundPaise: d.fundPaise,
-    supporterCount: d.supporterCount,
-    coordinates: d.location?.coordinates,
-    city: d.location?.city ?? '',
-    photo: d.photos?.[0] ? cloudinaryThumb(d.photos[0]) : null,
-  }));
+  const items = docs.slice(0, cappedLimit).map((raw) => {
+    const d = lang ? localizeIssue(raw, lang) : raw;
+    return {
+      _id: d._id,
+      title: d.title,
+      category: d.category,
+      issueType: d.issueType || 'SOCIAL_EXPLOSION',
+      status: d.status,
+      tier: d.tier,
+      explosionTriggered: !!d.explosionTriggered,
+      fundPaise: d.fundPaise,
+      supporterCount: d.supporterCount,
+      coordinates: d.location?.coordinates,
+      city: d.location?.city ?? '',
+      photo: d.photos?.[0] ? cloudinaryThumb(d.photos[0]) : null,
+    };
+  });
   return { items, count: items.length, truncated };
 }
 
@@ -828,7 +868,7 @@ export async function listMyIssues(userId, { page = 1, limit = 20 } = {}) {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .select('title category issueType importance thresholdTarget fundingGoalPaise explosionTriggered status fundPaise supporterCount location resolution photos createdAt')
+      .select('title titleHi issueLang category issueType importance thresholdTarget fundingGoalPaise explosionTriggered status fundPaise supporterCount location resolution photos createdAt')
       .lean(),
     Issue.countDocuments(filter),
   ]);
@@ -852,7 +892,7 @@ export async function listMySupported(userId, { page = 1, limit = 20 } = {}) {
       .limit(limit)
       .populate({
         path: 'issueId',
-        select: 'title category issueType importance thresholdTarget fundingGoalPaise explosionTriggered status fundPaise supporterCount location resolution photos createdAt',
+        select: 'title titleHi issueLang category issueType importance thresholdTarget fundingGoalPaise explosionTriggered status fundPaise supporterCount location resolution photos createdAt',
       })
       .lean(),
     IssueSupport.countDocuments(filter),
@@ -920,9 +960,13 @@ export async function recordResolution({ issueId, actor, data }) {
   const resolutionPayload = {
     solverType: data.solverType,
     organizationName: data.organizationName,
+    ...(data.organizationNameHi ? { organizationNameHi: data.organizationNameHi } : {}),
     departmentOrLead: data.departmentOrLead ?? '',
+    ...(data.departmentOrLeadHi ? { departmentOrLeadHi: data.departmentOrLeadHi } : {}),
     resolutionDetails: data.resolutionDetails,
+    ...(data.resolutionDetailsHi ? { resolutionDetailsHi: data.resolutionDetailsHi } : {}),
     impactSummary: data.impactSummary ?? '',
+    ...(data.impactSummaryHi ? { impactSummaryHi: data.impactSummaryHi } : {}),
     resolvedAt: now,
     promotion: {
       enabled: data.promotion?.enabled ?? (data.solverType === 'NGO' || data.solverType === 'PRIVATE_ORG'),
@@ -996,10 +1040,17 @@ export async function addFundUtilization({ issueId, actor, data }) {
 /**
  * State-wise & area-wise statistics across all 28 States + 8 UTs of India.
  */
-export async function getLocationStats({ state } = {}) {
+export async function getLocationStats({ state, lang } = {}) {
+  const langClause = lang ? buildIssueLanguageFilter(lang) : null;
+  const baseMatch = langClause ? { status: { $ne: 'REJECTED' }, ...langClause } : { status: { $ne: 'REJECTED' } };
+  const cityMatch = {
+    ...baseMatch,
+    ...(state ? { 'location.state': normalizeIndianState(state) } : {}),
+  };
+
   const [stateAgg, cityAgg, totals] = await Promise.all([
     Issue.aggregate([
-      { $match: { status: { $ne: 'REJECTED' } } },
+      { $match: baseMatch },
       {
         $group: {
           _id: '$location.state',
@@ -1015,15 +1066,14 @@ export async function getLocationStats({ state } = {}) {
       },
     ]),
     Issue.aggregate([
-      {
-        $match: {
-          status: { $ne: 'REJECTED' },
-          ...(state ? { 'location.state': normalizeIndianState(state) } : {}),
-        },
-      },
+      { $match: cityMatch },
       {
         $group: {
-          _id: { state: '$location.state', city: '$location.city' },
+          _id: {
+            state: '$location.state',
+            city: lang === 'hi' ? { $ifNull: ['$location.cityHi', '$location.city'] } : '$location.city',
+            cityEn: '$location.city',
+          },
           total: { $sum: 1 },
           resolved: { $sum: { $cond: [{ $in: ['$status', ['RESOLVED', 'CLOSED']] }, 1, 0] } },
           thresholdReached: { $sum: { $cond: [{ $eq: ['$explosionTriggered', true] }, 1, 0] } },
@@ -1034,7 +1084,7 @@ export async function getLocationStats({ state } = {}) {
       { $limit: 40 },
     ]),
     Issue.aggregate([
-      { $match: { status: { $ne: 'REJECTED' } } },
+      { $match: baseMatch },
       {
         $group: {
           _id: null,
@@ -1122,22 +1172,24 @@ export async function getLocationStats({ state } = {}) {
  * Public recognition & promotion feed for NGOs, Private Organizations & Departments
  * that have solved civic issues.
  */
-export async function getPartnerRecognitions() {
+export async function getPartnerRecognitions({ lang } = {}) {
   const solved = await Issue.find({
     status: { $in: ['RESOLVED', 'CLOSED'] },
     'resolution.organizationName': { $exists: true, $ne: '' },
   })
     .sort({ resolvedAt: -1 })
-    .select('title category issueType location resolution fundPaise supporterCount resolvedAt')
+    .select('title titleHi category issueType location resolution fundPaise supporterCount resolvedAt')
     .lean();
 
   const grouped = new Map();
-  for (const iss of solved) {
-    const orgName = iss.resolution.organizationName;
-    const key = `${iss.resolution.solverType}:${orgName.toLowerCase()}`;
+  for (const raw of solved) {
+    const iss = lang === 'hi' ? localizeIssue(raw, 'hi') : raw;
+    const orgKeyName = raw.resolution.organizationName;
+    const displayOrgName = iss.resolution.organizationName;
+    const key = `${raw.resolution.solverType}:${orgKeyName.toLowerCase()}`;
     if (!grouped.has(key)) {
       grouped.set(key, {
-        organizationName: orgName,
+        organizationName: displayOrgName,
         solverType: iss.resolution.solverType,
         departmentOrLead: iss.resolution.departmentOrLead || '',
         promotion: iss.resolution.promotion || {},

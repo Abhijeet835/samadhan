@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatPaise } from '@/features/wallet/money';
 import { INDIA_STATES_AND_UTS, getStateLabel } from '@/lib/indiaLocations';
+import { currentLang } from '@/features/global/localizeIssue';
 
 const FALLBACK_STATES = INDIA_STATES_AND_UTS.map((st) => ({
   code: st.code,
@@ -21,6 +22,7 @@ const FALLBACK_STATES = INDIA_STATES_AND_UTS.map((st) => ({
 
 export default function StateExplorerPage() {
   const { t, i18n } = useTranslation();
+  const lang = currentLang(i18n.language);
   const [data, setData] = useState(null);
   const [partners, setPartners] = useState([]);
   const [selectedState, setSelectedState] = useState('');
@@ -33,8 +35,8 @@ export default function StateExplorerPage() {
     setLoading(true);
     setError(false);
     Promise.allSettled([
-      api.get('/issues/stats/locations', { params: selectedState ? { state: selectedState } : {} }),
-      api.get('/issues/stats/partners'),
+      api.get('/issues/stats/locations', { params: { lang, ...(selectedState ? { state: selectedState } : {}) } }),
+      api.get('/issues/stats/partners', { params: { lang } }),
     ]).then(([locRes, partnerRes]) => {
       if (!active) return;
       if (locRes.status === 'fulfilled') {
@@ -48,7 +50,7 @@ export default function StateExplorerPage() {
       setLoading(false);
     });
     return () => { active = false; };
-  }, [selectedState, reloadTick]);
+  }, [selectedState, reloadTick, lang]);
 
   const overview = data?.overview;
   const states = data?.states?.length ? data.states : FALLBACK_STATES;
@@ -131,7 +133,7 @@ export default function StateExplorerPage() {
                             {st.type === 'UT' ? t('states.utLabel') : t('states.stateLabel')} · {st.code}
                           </span>
                           <h3 className="text-base font-bold text-slate-900">
-                            {i18n.language === 'hi' ? st.stateHi : st.state}
+                            {lang === 'hi' ? st.stateHi : st.state}
                           </h3>
                         </div>
                         <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold tabular-nums text-blue-700">

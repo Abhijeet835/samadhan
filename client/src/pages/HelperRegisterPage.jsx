@@ -21,8 +21,9 @@ const labelClass = 'mb-1.5 block text-sm font-medium text-slate-700';
 export default function HelperRegisterPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [checking, setChecking] = useState(true);
+  const [categories, setCategories] = useState(LOCAL_CATEGORIES);
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -45,6 +46,23 @@ export default function HelperRegisterPage() {
   });
   const [coords, setCoords] = useState({ lat: 12.9716, lng: 77.5946 });
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+
+  useEffect(() => {
+    api.get('/helpers/meta')
+      .then((res) => {
+        const list = res.data?.categories;
+        if (Array.isArray(list) && list.length > 0) {
+          setCategories(list);
+          setForm((prev) => ({
+            ...prev,
+            categories: prev.categories.filter((c) => list.includes(c)).length
+              ? prev.categories.filter((c) => list.includes(c))
+              : [list[0]],
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (user?.role === 'ADMIN') {
@@ -163,6 +181,7 @@ export default function HelperRegisterPage() {
         },
       });
       toast.success(t('local.registered'));
+      await refreshUser?.();
       navigate('/local/dashboard');
     } catch (err) {
       const code = err.response?.data?.error?.code;
@@ -197,7 +216,7 @@ export default function HelperRegisterPage() {
             <div>
               <label className={labelClass}>{t('local.categoriesLabel')}</label>
               <div className="flex flex-wrap gap-1.5">
-                {LOCAL_CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <button
                     key={c}
                     type="button"

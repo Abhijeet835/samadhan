@@ -220,4 +220,33 @@ describe('Dashboard + audit viewer', () => {
     expect(typeof first.explosionTriggered).toBe('boolean');
     expect(['SOCIAL_EXPLOSION', 'POOL_FUNDS']).toContain(first.issueType);
   });
+
+  it('dashboard counts explosionTriggered active issues and settings exposes 3/6/12 demo importance limits', async () => {
+    const explodedIssue = await Issue.create({
+      reporterId: citizen._id,
+      title: 'Exploded active civic drainage emergency',
+      description: 'Active exploded issue without legacy tier bumped yet.',
+      category: 'SEWAGE_DRAINAGE',
+      issueType: 'SOCIAL_EXPLOSION',
+      importance: 'SMALL',
+      thresholdTarget: 3,
+      explosionTriggered: true,
+      explosionTriggeredAt: new Date(),
+      status: 'ACTIVE',
+      tier: 0,
+      location: { type: 'Point', coordinates: [77.65, 12.95], city: 'Bengaluru', state: 'Karnataka' },
+    });
+
+    const dash = await request(app).get('/api/admin/dashboard?days=7').set(A());
+    expect(dash.status).toBe(200);
+    expect(dash.body.data.attention.tier1PlusStillActive).toBeGreaterThanOrEqual(1);
+
+    const listExp = await request(app).get('/api/admin/issues?exploded=true').set(A());
+    expect(listExp.status).toBe(200);
+    expect(listExp.body.data.items.some((i) => i._id === String(explodedIssue._id))).toBe(true);
+
+    const s = await request(app).get('/api/admin/settings').set(A());
+    expect(s.status).toBe(200);
+    expect(s.body.data.demoImportanceThresholds).toEqual({ SMALL: 3, MEDIUM: 6, LARGE: 12 });
+  });
 });

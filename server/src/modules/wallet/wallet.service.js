@@ -16,9 +16,9 @@ const DEFAULT_SETTINGS = Object.freeze({
   supportFeePaise: 100,
   tier1Paise: 20000,
   tier2Paise: 50000,
-  smallIssueThreshold: 5,
-  mediumIssueThreshold: 15,
-  largeIssueThreshold: 30,
+  smallIssueThreshold: 25,
+  mediumIssueThreshold: 50,
+  largeIssueThreshold: 100,
   smallPoolGoalPaise: 50000,
   mediumPoolGoalPaise: 250000,
   largePoolGoalPaise: 1000000,
@@ -83,9 +83,9 @@ export async function getImportanceThresholds() {
     return { ...DEMO_IMPORTANCE_THRESHOLDS };
   }
   return {
-    SMALL: await getSetting('smallIssueThreshold').catch(() => 5),
-    MEDIUM: await getSetting('mediumIssueThreshold').catch(() => 15),
-    LARGE: await getSetting('largeIssueThreshold').catch(() => 30),
+    SMALL: await getSetting('smallIssueThreshold').catch(() => 25),
+    MEDIUM: await getSetting('mediumIssueThreshold').catch(() => 50),
+    LARGE: await getSetting('largeIssueThreshold').catch(() => 100),
   };
 }
 

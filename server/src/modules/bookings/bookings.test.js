@@ -6,6 +6,7 @@ import request from 'supertest';
 import app from '../../app.js';
 import User from '../users/user.model.js';
 import Helper from '../helpers/helper.model.js';
+import Settings from '../wallet/settings.model.js';
 import Booking from './booking.model.js';
 import Issue from '../issues/issue.model.js';
 import Wallet from '../wallet/wallet.model.js';
@@ -271,9 +272,9 @@ describe('Global Mode: Dynamic importance limits, Pool Funds, Resolution & India
         idempotencyKey: `exp:${Math.random().toString(36).slice(2)}`,
       });
     expect(resSmall.status).toBe(201);
-    const smallIssue = resSmall.body.data.issue;
-    expect(smallIssue.thresholdTarget).toBe(5);
-    expect(smallIssue.explosionTriggered).toBe(false);
+    const defaultSmall = resSmall.body.data.issue;
+    expect(defaultSmall.thresholdTarget).toBe(25);
+    expect(defaultSmall.explosionTriggered).toBe(false);
 
     const resLarge = await request(app)
       .post('/api/issues')
@@ -288,7 +289,26 @@ describe('Global Mode: Dynamic importance limits, Pool Funds, Resolution & India
         idempotencyKey: `exp:${Math.random().toString(36).slice(2)}`,
       });
     expect(resLarge.status).toBe(201);
-    expect(resLarge.body.data.issue.thresholdTarget).toBe(30);
+    expect(resLarge.body.data.issue.thresholdTarget).toBe(100);
+
+    // Lower threshold via settings to 5 so 4 additional supporters hit the limit atomically
+    await Settings.updateOne({ key: 'smallIssueThreshold' }, { $set: { value: 5 } });
+    const quickSmallRes = await request(app)
+      .post('/api/issues')
+      .set('Authorization', `Bearer ${tokenFor(reporter)}`)
+      .send({
+        title: 'Broken park bench near Sector 19 playground',
+        description: 'Three wooden benches are splintered and unsafe for seniors and school kids.',
+        category: 'PUBLIC_FACILITIES',
+        issueType: 'SOCIAL_EXPLOSION',
+        importance: 'SMALL',
+        location: { coordinates: [77.335, 28.58], address: 'Sector 19', city: 'Noida', state: 'Uttar Pradesh', pincode: '201301' },
+        idempotencyKey: `exp:${Math.random().toString(36).slice(2)}`,
+      });
+    expect(quickSmallRes.status).toBe(201);
+    const smallIssue = quickSmallRes.body.data.issue;
+    expect(smallIssue.thresholdTarget).toBe(5);
+    await Settings.updateOne({ key: 'smallIssueThreshold' }, { $set: { value: 25 } });
 
     // 4 additional supporters push supporterCount from 1 -> 5 == smallIssueThreshold
     const supporters = await Promise.all([1, 2, 3, 4].map(() => makeFundedUser({ balancePaise: 10000 })));

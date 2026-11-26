@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 
 import api from '@/lib/api';
+import { currentLang } from './localizeIssue';
 
 export function useIssuesFeed(initial = {}) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = currentLang(i18n.language);
   const [filters, setFilters] = useState({
     page: 1,
     limit: 12,
@@ -28,7 +30,7 @@ export function useIssuesFeed(initial = {}) {
     setLoading(true);
     setError(false);
     try {
-      const params = { page: current.page, limit: current.limit, sort: current.sort };
+      const params = { page: current.page, limit: current.limit, sort: current.sort, lang };
       if (current.category) params.category = current.category;
       if (current.status) params.status = current.status;
       if (current.issueType) params.issueType = current.issueType;
@@ -45,7 +47,7 @@ export function useIssuesFeed(initial = {}) {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, lang]);
 
   useEffect(() => {
     const timer = setTimeout(() => load(filters), filters.q ? 350 : 0);

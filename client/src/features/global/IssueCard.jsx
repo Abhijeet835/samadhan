@@ -6,9 +6,11 @@ import { getStateLabel } from '@/lib/indiaLocations';
 import FundMeter from './FundMeter';
 import TierBadge from './TierBadge';
 import { CategoryBadge, ImportanceBadge, IssueTypeBadge, StatusBadge } from './StatusBadge';
+import { pickIssueText } from './localizeIssue';
 
-export default function IssueCard({ issue }) {
+export default function IssueCard({ issue: rawIssue }) {
   const { t, i18n } = useTranslation();
+  const issue = pickIssueText(rawIssue, i18n.language);
   const stateLabel = getStateLabel(issue.location?.state, i18n.language);
   const place = [issue.location?.city, stateLabel].filter(Boolean).join(', ') || issue.location?.address;
   const solver = issue.resolution?.organizationName;

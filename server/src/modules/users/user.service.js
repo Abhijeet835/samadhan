@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import User from './user.model.js';
+import Helper from '../helpers/helper.model.js';
 import { ensureWallet } from '../wallet/wallet.service.js';
 import {
   createTokenPayload,
@@ -8,11 +9,17 @@ import {
   normalizeRole,
 } from '../../utils/jwt.util.js';
 
-function sanitizeUser(user) {
+function sanitizeUser(user, hasHelperProfile = false) {
   const userObject = typeof user.toObject === 'function' ? user.toObject() : { ...user };
   delete userObject.password;
   userObject.role = normalizeRole(userObject.role);
+  userObject.hasHelperProfile = Boolean(hasHelperProfile);
   return userObject;
+}
+
+async function sanitizeUserWithFlags(user) {
+  const hasHelper = Boolean(await Helper.exists({ userId: user._id }));
+  return sanitizeUser(user, hasHelper);
 }
 
 const SALT_ROUNDS = 10;
@@ -59,7 +66,7 @@ export async function registerUser(userData) {
 
   // Return user without password
   return {
-    user: sanitizeUser(user),
+    user: sanitizeUser(user, false),
     accessToken,
     refreshToken,
   };
@@ -101,7 +108,7 @@ export async function loginUser(email, password) {
 
   // Return user without password
   return {
-    user: sanitizeUser(user),
+    user: await sanitizeUserWithFlags(user),
     accessToken,
     refreshToken,
   };
@@ -119,7 +126,7 @@ export async function getUserProfile(userId) {
     throw new Error('USER_NOT_FOUND');
   }
 
-  return sanitizeUser(user);
+  return sanitizeUserWithFlags(user);
 }
 
 /**
@@ -161,7 +168,7 @@ export async function updateUserProfile(userId, updates) {
 
   await user.save();
 
-  return sanitizeUser(user);
+  return sanitizeUserWithFlags(user);
 }
 
 /**
@@ -206,7 +213,7 @@ export async function switchMode(userId, mode) {
   user.activeMode = mode;
   await user.save();
 
-  return sanitizeUser(user);
+  return sanitizeUserWithFlags(user);
 }
 
 /**

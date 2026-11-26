@@ -38,4 +38,5 @@ export const trendingQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   category: z.enum(ISSUE_CATEGORIES).optional(),
   city: z.string().trim().max(100).optional(),
+  lang: z.enum(['en', 'hi']).optional(),
 });

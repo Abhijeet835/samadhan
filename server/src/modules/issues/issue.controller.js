@@ -102,15 +102,15 @@ export async function support(req, res, next) {
 
 export async function locationStats(req, res, next) {
   try {
-    return sendSuccess(res, await issueService.getLocationStats({ state: req.query.state }));
+    return sendSuccess(res, await issueService.getLocationStats({ state: req.query.state, lang: req.query.lang }));
   } catch (error) {
     return next(error);
   }
 }
 
-export async function partners(_req, res, next) {
+export async function partners(req, res, next) {
   try {
-    return sendSuccess(res, await issueService.getPartnerRecognitions());
+    return sendSuccess(res, await issueService.getPartnerRecognitions({ lang: req.query.lang }));
   } catch (error) {
     return next(error);
   }

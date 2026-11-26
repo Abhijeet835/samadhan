@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CategoryBadge, StatusBadge } from '@/features/global/StatusBadge';
+import { pickIssueText } from '@/features/global/localizeIssue';
 import { formatPaise, formatTxnDate } from '@/features/wallet/money';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -182,8 +183,9 @@ export default function MyActivityPage() {
                     );
                   }
 
-                  const issue = tab === 'reported' ? row : row.issue;
-                  if (!issue) return null;
+                  const rawIssue = tab === 'reported' ? row : row.issue;
+                  if (!rawIssue) return null;
+                  const issue = pickIssueText(rawIssue, i18n.language);
                   return (
                     <li key={`${issue._id}-${tab === 'supported' ? row.supportedAt : ''}`}>
                       <Link to={`/issues/${issue._id}`} className="surface-card-hover block p-4">

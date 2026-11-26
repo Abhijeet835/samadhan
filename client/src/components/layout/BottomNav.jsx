@@ -47,11 +47,11 @@ export default function BottomNav() {
           {isAuthenticated ? (
             <>
               <Link
-                to={user?.role === 'PROVIDER' ? '/local/dashboard' : '/my-activity'}
+                to={user?.role === 'PROVIDER' || user?.hasHelperProfile ? '/local/dashboard' : '/my-activity'}
                 className={cn(itemClass, active(location.pathname === '/local/dashboard' || location.pathname === '/my-activity', 'teal'))}
               >
-                {user?.role === 'PROVIDER' ? <Briefcase className="h-5 w-5" aria-hidden="true" /> : <Activity className="h-5 w-5" aria-hidden="true" />}
-                <span className="w-full truncate">{user?.role === 'PROVIDER' ? t('nav.providerHub') : t('nav.myActivity')}</span>
+                {user?.role === 'PROVIDER' || user?.hasHelperProfile ? <Briefcase className="h-5 w-5" aria-hidden="true" /> : <Activity className="h-5 w-5" aria-hidden="true" />}
+                <span className="w-full truncate">{user?.role === 'PROVIDER' || user?.hasHelperProfile ? t('nav.providerHub') : t('nav.myActivity')}</span>
               </Link>
               <Link to="/wallet" className={cn(itemClass, active(location.pathname === '/wallet', 'teal'))}>
                 <Wallet className="h-5 w-5" aria-hidden="true" />

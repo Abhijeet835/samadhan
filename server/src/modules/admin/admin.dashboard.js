@@ -39,7 +39,7 @@ export async function getDashboard(days = 30) {
     DispatchLog.countDocuments({ status: 'FAILED' }),
     SocialPost.countDocuments({ status: 'FAILED' }),
     IssueFlag.distinct('issueId', { dismissed: false }),
-    Issue.countDocuments({ tier: { $gte: 1 }, status: 'ACTIVE' }),
+    Issue.countDocuments({ status: 'ACTIVE', $or: [{ explosionTriggered: true }, { tier: { $gte: 1 } }] }),
     Issue.aggregate([{ $match: { createdAt: { $gte: since } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, n: { $sum: 1 } } }]),
     WalletTxn.aggregate([{ $match: { createdAt: { $gte: since }, type: { $in: ['REPORT_FEE', 'SUPPORT_FEE', 'POOL_CONTRIBUTION', 'REFUND'] } } }, { $group: { _id: { day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, type: '$type' }, total: { $sum: '$amountPaise' } } }]),
     Connection.aggregate([{ $match: { createdAt: { $gte: since } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, n: { $sum: 1 } } }]),
@@ -48,7 +48,7 @@ export async function getDashboard(days = 30) {
   ]);
 
   const feeMap = Object.fromEntries(feeAgg.map((f) => [f._id, f.total]));
-  const gross = -((feeMap.REPORT_FEE ?? 0) + (feeMap.SUPPORT_FEE ?? 0));
+  const gross = -((feeMap.REPORT_FEE ?? 0) + (feeMap.SUPPORT_FEE ?? 0) + (feeMap.POOL_CONTRIBUTION ?? 0));
   const refunds = feeMap.REFUND ?? 0;
   const statusMap = countMap(issuesByStatus);
   const helperMap = countMap(helpersAgg);

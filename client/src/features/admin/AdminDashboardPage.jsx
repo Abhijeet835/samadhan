@@ -48,7 +48,7 @@ export default function AdminDashboardPage() {
     { label: t('admin.attention.failedDispatch'), n: data.attention.failedDispatch, to: '/admin/dispatch' },
     { label: t('admin.attention.failedSocial'), n: data.attention.failedSocial, to: '/admin/social' },
     { label: t('admin.attention.flaggedIssues'), n: data.attention.flaggedIssues, to: '/admin/issues?flagged=true' },
-    { label: t('admin.attention.tier1Active'), n: data.attention.tier1PlusStillActive, to: '/admin/issues' },
+    { label: t('admin.attention.tier1Active'), n: data.attention.tier1PlusStillActive, to: '/admin/issues?exploded=true' },
   ];
 
   return (

@@ -21,6 +21,7 @@ import PoolFundsGuide from '@/features/global/PoolFundsGuide';
 import { useIssueDetail } from '@/features/global/useIssueDetail';
 import { formatTxnDate, formatPaise } from '@/features/wallet/money';
 import IssueFlagDialog from '@/features/global/IssueFlagDialog';
+import { pickIssueText } from '@/features/global/localizeIssue';
 import { getStateLabel } from '@/lib/indiaLocations';
 
 const IssueLocationMap = lazy(() => import('@/features/maps/IssueLocationMap'));
@@ -61,7 +62,8 @@ export default function IssueDetailPage() {
     );
   }
 
-  const { issue, updates, viewer } = data;
+  const { issue: rawIssue, updates, viewer } = data;
+  const issue = pickIssueText(rawIssue, i18n.language);
   const location = issue.location ?? {};
   const stateLabel = getStateLabel(location.state, i18n.language);
   const fullLoc = ['India', stateLabel, location.city, location.address, location.pincode].filter(Boolean).join(' · ');

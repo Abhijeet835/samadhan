@@ -46,6 +46,77 @@ export const ISSUE_STATUSES = [
 export const ISSUE_TYPES = ['SOCIAL_EXPLOSION', 'POOL_FUNDS'];
 export const IMPORTANCE_LEVELS = ['SMALL', 'MEDIUM', 'LARGE'];
 export const SOLVER_TYPES = ['GOVERNMENT', 'NGO', 'PRIVATE_ORG', 'COMMUNITY'];
+export const ISSUE_LANGUAGES = ['en', 'hi'];
+
+const DEVANAGARI_RE = new RegExp(`[${String.fromCharCode(0x0900)}-${String.fromCharCode(0x097f)}]`);
+
+export function hasDevanagari(text) {
+  return DEVANAGARI_RE.test(String(text ?? ''));
+}
+
+export function buildIssueLanguageFilter(lang) {
+  if (lang === 'hi') {
+    return {
+      $or: [
+        { titleHi: { $exists: true, $type: 'string', $ne: '' } },
+        { issueLang: 'hi' },
+        { language: 'hi' },
+        { title: DEVANAGARI_RE },
+      ],
+    };
+  }
+  if (lang === 'en') {
+    return {
+      $and: [
+        {
+          $or: [
+            { issueLang: 'en' },
+            {
+              $and: [
+                { issueLang: { $exists: false } },
+                { $or: [{ language: 'en' }, { language: { $exists: false } }] },
+              ],
+            },
+          ],
+        },
+        { title: { $not: DEVANAGARI_RE } },
+      ],
+    };
+  }
+  return null;
+}
+
+export function localizeIssue(doc, lang) {
+  if (!doc || lang !== 'hi') return doc;
+  const localized = {
+    ...doc,
+    title: doc.titleHi || doc.title,
+    description: doc.descriptionHi || doc.description,
+  };
+  if (doc.location) {
+    localized.location = {
+      ...doc.location,
+      address: doc.location.addressHi || doc.location.address,
+      city: doc.location.cityHi || doc.location.city,
+    };
+  }
+  if (doc.responsibleParty) {
+    localized.responsibleParty = {
+      ...doc.responsibleParty,
+      name: doc.responsibleParty.nameHi || doc.responsibleParty.name,
+    };
+  }
+  if (doc.resolution) {
+    localized.resolution = {
+      ...doc.resolution,
+      organizationName: doc.resolution.organizationNameHi || doc.resolution.organizationName,
+      departmentOrLead: doc.resolution.departmentOrLeadHi || doc.resolution.departmentOrLead,
+      resolutionDetails: doc.resolution.resolutionDetailsHi || doc.resolution.resolutionDetails,
+      impactSummary: doc.resolution.impactSummaryHi || doc.resolution.impactSummary,
+    };
+  }
+  return localized;
+}
 
 const utilizationItemSchema = new mongoose.Schema(
   {
@@ -73,6 +144,22 @@ const issueSchema = new mongoose.Schema(
       minlength: [20, 'Description must be at least 20 characters'],
       maxlength: [2000, 'Description cannot exceed 2000 characters'],
     },
+    issueLang: {
+      type: String,
+      enum: ISSUE_LANGUAGES,
+      default: 'en',
+      index: true,
+    },
+    titleHi: {
+      type: String,
+      trim: true,
+      maxlength: 150,
+    },
+    descriptionHi: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+    },
     category: {
       type: String,
       enum: ISSUE_CATEGORIES,
@@ -94,7 +181,7 @@ const issueSchema = new mongoose.Schema(
     // Dynamic limit: supporter threshold for SOCIAL_EXPLOSION, or goal paise for POOL_FUNDS.
     thresholdTarget: {
       type: Number,
-      default: 15,
+      default: 50,
       min: 1,
     },
     fundingGoalPaise: {
@@ -135,7 +222,9 @@ const issueSchema = new mongoose.Schema(
       },
       country: { type: String, default: 'India' },
       address: String,
+      addressHi: String,
       city: String,
+      cityHi: String,
       state: { type: String, set: normalizeIndianState },
       pincode: String,
     },
@@ -196,6 +285,7 @@ const issueSchema = new mongoose.Schema(
         default: 'NONE',
       },
       name: { type: String, trim: true, maxlength: 140, default: '' },
+      nameHi: { type: String, trim: true, maxlength: 140, default: '' },
       contactRole: { type: String, trim: true, maxlength: 100, default: '' },
       note: { type: String, trim: true, maxlength: 300, default: '' },
     },
@@ -207,9 +297,13 @@ const issueSchema = new mongoose.Schema(
     resolution: {
       solverType: { type: String, enum: SOLVER_TYPES },
       organizationName: { type: String, trim: true, maxlength: 160, default: '' },
+      organizationNameHi: { type: String, trim: true, maxlength: 160, default: '' },
       departmentOrLead: { type: String, trim: true, maxlength: 140, default: '' },
+      departmentOrLeadHi: { type: String, trim: true, maxlength: 140, default: '' },
       resolutionDetails: { type: String, trim: true, maxlength: 1000, default: '' },
+      resolutionDetailsHi: { type: String, trim: true, maxlength: 1000, default: '' },
       impactSummary: { type: String, trim: true, maxlength: 500, default: '' },
+      impactSummaryHi: { type: String, trim: true, maxlength: 500, default: '' },
       resolvedAt: Date,
       promotion: {
         enabled: { type: Boolean, default: false },

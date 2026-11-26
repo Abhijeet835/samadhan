@@ -31,6 +31,7 @@ export default function HelperDashboardPage() {
   const { unreadCount } = useNotifications();
   const lastUnread = useRef(null);
   const [data, setData] = useState(null);
+  const [categories, setCategories] = useState(LOCAL_CATEGORIES);
   const [bookings, setBookings] = useState([]);
   const [bookingSummary, setBookingSummary] = useState({ completedCount: 0, grossPaise: 0, commissionPaise: 0, netPayoutPaise: 0 });
   const requestedTab = searchParams.get('tab');
@@ -44,10 +45,14 @@ export default function HelperDashboardPage() {
   const load = useCallback(async () => {
     setError(false);
     try {
-      const [dashRes, bookRes] = await Promise.all([
+      const [dashRes, bookRes, metaRes] = await Promise.all([
         api.get('/helpers/me/dashboard', { params: { limit: 50 } }),
         api.get('/bookings/provider'),
+        api.get('/helpers/meta').catch(() => null),
       ]);
+      if (Array.isArray(metaRes?.data?.categories) && metaRes.data.categories.length > 0) {
+        setCategories(metaRes.data.categories);
+      }
       setData(dashRes.data);
       const h = dashRes.data.helper;
       setEdit({
@@ -337,7 +342,7 @@ export default function HelperDashboardPage() {
               <input className="field-input" value={edit.displayName} onChange={(e) => setEdit({ ...edit, displayName: e.target.value })} maxLength={80} />
               <input className="field-input" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} pattern="[6-9][0-9]{9}" />
               <div className="flex flex-wrap gap-1.5">
-                {LOCAL_CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <button
                     key={c}
                     type="button"

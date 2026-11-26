@@ -5,7 +5,7 @@
 
 import mongoose from 'mongoose';
 import SocialPost from './socialPost.model.js';
-import Issue, { normalizeIssueCategory } from '../issues/issue.model.js';
+import Issue, { buildIssueLanguageFilter, localizeIssue, normalizeIssueCategory } from '../issues/issue.model.js';
 import Authority from '../authorities/authority.model.js';
 import AuditLog from '../tiers/auditLog.model.js';
 import { getSetting } from '../wallet/wallet.service.js';
@@ -495,16 +495,25 @@ export async function getIssuePosts(issueId) {
  * Public API: trending issues (tier ≥ 1, not REJECTED/CLOSED).
  * Sort: tier desc, total reach desc, supporterCount desc.
  */
-export async function getTrending({ page = 1, limit = 20, category, city } = {}) {
+export async function getTrending({ page = 1, limit = 20, category, city, lang } = {}) {
+  const andClauses = [{ $or: [{ explosionTriggered: true }, { tier: { $gte: 1 } }] }];
+  const langClause = lang ? buildIssueLanguageFilter(lang) : null;
+  if (langClause) andClauses.push(langClause);
+
   const filter = {
-    $or: [{ explosionTriggered: true }, { tier: { $gte: 1 } }],
+    $and: andClauses,
     status: { $nin: ['REJECTED', 'CLOSED'] },
   };
 
   if (category) filter.category = normalizeIssueCategory(category);
   if (city) {
     const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    filter['location.city'] = new RegExp(escapedCity, 'i');
+    andClauses.push({
+      $or: [
+        { 'location.city': new RegExp(escapedCity, 'i') },
+        { 'location.cityHi': new RegExp(escapedCity, 'i') },
+      ],
+    });
   }
 
   // Calculate total reach for sorting
@@ -536,7 +545,7 @@ export async function getTrending({ page = 1, limit = 20, category, city } = {})
   ]);
 
   return {
-    issues,
+    issues: lang ? issues.map((iss) => localizeIssue(iss, lang)) : issues,
     pagination: {
       page,
       limit,

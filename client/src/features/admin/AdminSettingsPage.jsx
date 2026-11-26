@@ -25,6 +25,7 @@ export default function AdminSettingsPage() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState([]);
   const [demoThresholds, setDemoThresholds] = useState(null);
+  const [demoImportance, setDemoImportance] = useState(null);
   const [socialMode, setSocialMode] = useState('');
   const [categories, setCategories] = useState(null);
   const [draft, setDraft] = useState({});
@@ -38,7 +39,7 @@ export default function AdminSettingsPage() {
     setError(false);
     try {
       const [s, c] = await Promise.all([api.get('/admin/settings'), api.get('/admin/categories')]);
-      setSettings(s.data.settings); setDemoThresholds(s.data.demoThresholds); setSocialMode(s.data.socialPublishMode);
+      setSettings(s.data.settings); setDemoThresholds(s.data.demoThresholds); setDemoImportance(s.data.demoImportanceThresholds); setSocialMode(s.data.socialPublishMode);
       setCategories(c.data);
       setDraft(Object.fromEntries(s.data.settings.map((x) => [x.key, x.value])));
     } catch {
@@ -51,6 +52,7 @@ export default function AdminSettingsPage() {
   useEffect(() => { load(); }, []);
 
   const demoOn = draft.demoMode === true;
+  const limitsText = demoImportance ? `${demoImportance.SMALL} / ${demoImportance.MEDIUM} / ${demoImportance.LARGE}` : '3 / 6 / 12';
 
   if (loading && settings.length === 0) {
     return <div className="h-96 animate-pulse rounded-xl bg-slate-200" aria-label={t('common.loading')} />;
@@ -93,7 +95,7 @@ export default function AdminSettingsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-900">{t('admin.tabs.settings')}</h1>
-      {demoOn && <div className="mt-3 rounded-lg bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-800">{t('admin.demoBanner', { t1: '₹20', t2: '₹50' })}</div>}
+      {demoOn && <div className="mt-3 rounded-lg bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-800">{t('admin.demoBanner', { limits: limitsText, t1: '₹20', t2: '₹50' })}</div>}
 
       <Card className="mt-4"><CardContent className="pt-5">
         <p className="font-semibold text-slate-900">{t('admin.feesLimits')}</p>
@@ -115,7 +117,7 @@ export default function AdminSettingsPage() {
           ))}
         </div>
         <Button className="mt-4" onClick={requestSave}>{t('admin.saveSettings')}</Button>
-        {demoThresholds && <p className="mt-2 text-xs text-slate-400">{t('admin.demoThresholdsNote', { t1: demoThresholds.tier1Paise / 100, t2: demoThresholds.tier2Paise / 100 })}</p>}
+        {demoThresholds && <p className="mt-2 text-xs text-slate-400">{t('admin.demoThresholdsNote', { limits: limitsText, t1: demoThresholds.tier1Paise / 100, t2: demoThresholds.tier2Paise / 100 })}</p>}
         <p className="mt-2 text-xs text-slate-500">{t('admin.socialMode')}: <span className="font-semibold">{socialMode}</span> · <Link to="/admin/social" className="text-blue-700 underline">{t('admin.manageSocial')}</Link> · <Link to="/admin/dispatch" className="text-blue-700 underline">{t('admin.manageAuthorities')}</Link></p>
       </CardContent></Card>
 

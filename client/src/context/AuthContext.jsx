@@ -199,6 +199,7 @@ export function AuthProvider({ children }) {
     updateProfile,
     switchMode,
     changePassword,
+    refreshUser: loadUser,
     accessToken,
   };
 

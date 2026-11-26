@@ -51,7 +51,7 @@ export default function Navbar() {
           <Link to="/report" className={navLinkClass(pathname === '/report')}>
             {t('nav.report')}
           </Link>
-          {isAuthenticated && user?.role === 'PROVIDER' && (
+          {isAuthenticated && (user?.role === 'PROVIDER' || user?.hasHelperProfile) && (
             <Link to="/local/dashboard" className={navLinkClass(pathname === '/local/dashboard', 'teal')}>
               {t('nav.providerHub')}
             </Link>
@@ -81,7 +81,7 @@ export default function Navbar() {
                   <span className="hidden 2xl:inline">{t('nav.wallet')}</span>
                 </Link>
               </Button>
-              {user?.role === 'PROVIDER' && (
+              {(user?.role === 'PROVIDER' || user?.hasHelperProfile) && (
                 <Button asChild variant="ghost" size="sm" className="xl:hidden" aria-label={t('nav.providerHub')}>
                   <Link to="/local/dashboard">
                     <Briefcase className="h-4 w-4 text-teal-700" aria-hidden="true" />

@@ -17,6 +17,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/draftStorage';
 import { INDIA_STATES_AND_UTS, getCitiesForState } from '@/lib/indiaLocations';
+import { currentLang } from '@/features/global/localizeIssue';
 
 const LocationPicker = lazy(() => import('@/features/maps/LocationPicker'));
 const STEPS = ['details', 'location', 'photos', 'confirm'];
@@ -31,7 +32,7 @@ export default function ReportPage() {
   const [meta, setMeta] = useState({
     reportFeePaise: 500,
     maxPhotos: 3,
-    importanceThresholds: { SMALL: 5, MEDIUM: 15, LARGE: 30 },
+    importanceThresholds: { SMALL: 25, MEDIUM: 50, LARGE: 100 },
     poolGoalDefaults: { SMALL: 50000, MEDIUM: 250000, LARGE: 1000000 },
   });
   const [wallet, setWallet] = useState(null);
@@ -216,6 +217,7 @@ export default function ReportPage() {
       const payload = {
         title: form.title.trim(),
         description: form.description.trim(),
+        language: currentLang(i18n.language),
         category: form.category,
         issueType: form.issueType,
         importance: form.importance,
@@ -356,7 +358,7 @@ export default function ReportPage() {
                   <div className="grid grid-cols-3 gap-2">
                     {IMPORTANCE_LEVELS.map((lvl) => {
                       const active = form.importance === lvl;
-                      const supTarget = meta.importanceThresholds?.[lvl] ?? 15;
+                      const supTarget = meta.importanceThresholds?.[lvl] ?? 50;
                       const goalDefault = meta.poolGoalDefaults?.[lvl] ?? 250000;
                       return (
                         <button
@@ -465,7 +467,7 @@ export default function ReportPage() {
                     className="field-input"
                   >
                     <option value="">{t('report.fields.categoryPlaceholder')}</option>
-                    {ISSUE_CATEGORIES.map((c) => (
+                    {(meta.categories?.length ? meta.categories : ISSUE_CATEGORIES).map((c) => (
                       <option key={c} value={c}>{t(`issues.categories.${c}`)}</option>
                     ))}
                   </select>
@@ -491,7 +493,7 @@ export default function ReportPage() {
                     >
                       {INDIA_STATES_AND_UTS.map((s) => (
                         <option key={s.code} value={s.nameEn}>
-                          {i18n.language === 'hi' ? s.nameHi : s.nameEn}
+                          {currentLang(i18n.language) === 'hi' ? s.nameHi : s.nameEn}
                         </option>
                       ))}
                     </select>

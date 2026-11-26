@@ -4,10 +4,13 @@ import { useTranslation } from 'react-i18next';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
 import { MODE_KEY } from '@/features/local/constants';
 
 export default function Hero() {
   const { t } = useTranslation();
+  const { user, isAuthenticated } = useAuth();
+  const isProvider = isAuthenticated && (user?.role === 'PROVIDER' || user?.hasHelperProfile);
 
   return (
     <section className="relative overflow-hidden border-b border-border/60 bg-gradient-to-b from-slate-50 via-white to-background py-14 sm:py-20">
@@ -127,7 +130,9 @@ export default function Hero() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="border-teal-200 text-teal-800 hover:bg-teal-50">
-                <Link to="/local/register">{t('landing.localEntry.secondaryCta')}</Link>
+                <Link to={isProvider ? '/local/dashboard' : '/local/register'}>
+                  {isProvider ? t('nav.providerHub') : t('landing.localEntry.secondaryCta')}
+                </Link>
               </Button>
             </div>
           </article>
