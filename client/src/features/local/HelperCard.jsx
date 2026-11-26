@@ -5,6 +5,7 @@ import { CalendarCheck, MapPin, Star, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { formatPaise } from '@/features/wallet/money';
+import { getStateLabel } from '@/lib/indiaLocations';
 import { CATEGORY_ICONS, normalizeLocalCat } from './constants';
 import BookServiceDialog from './BookServiceDialog';
 
@@ -18,7 +19,8 @@ export default function HelperCard({ helper }) {
   const [bookOpen, setBookOpen] = useState(false);
   const firstCat = normalizeLocalCat(helper.categories?.[0]);
   const Icon = CATEGORY_ICONS[firstCat] ?? MapPin;
-  const place = [helper.serviceLocation?.city, helper.serviceLocation?.state].filter(Boolean).join(', ');
+  const stateLabel = getStateLabel(helper.serviceLocation?.state, i18n.language);
+  const place = [helper.serviceLocation?.city, stateLabel].filter(Boolean).join(', ');
 
   return (
     <>
@@ -56,9 +58,13 @@ export default function HelperCard({ helper }) {
                 </span>
               </p>
             </div>
-            {helper.isAvailable && (
+            {helper.isAvailable ? (
               <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
                 {t('local.availableNow')}
+              </span>
+            ) : (
+              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                {t('local.unavailable')}
               </span>
             )}
           </Link>
@@ -79,11 +85,12 @@ export default function HelperCard({ helper }) {
           <Button
             type="button"
             size="sm"
+            disabled={!helper.isAvailable}
             onClick={() => setBookOpen(true)}
-            className="flex-1 gap-1.5 bg-teal-700 text-white hover:bg-teal-800"
+            className="flex-1 gap-1.5 bg-teal-700 text-white hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-500"
           >
             <CalendarCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            {t('bookings.bookNow')}
+            {helper.isAvailable ? t('bookings.bookNow') : t('local.unavailable')}
           </Button>
           <Button asChild type="button" size="sm" variant="outline" className="border-teal-200 text-teal-800 hover:bg-teal-50">
             <Link to={`/local/helpers/${helper._id}`}>{t('common.viewDetails')}</Link>

@@ -14,6 +14,7 @@ import { CATEGORY_ICONS, normalizeLocalCat } from '@/features/local/constants';
 import BookServiceDialog from '@/features/local/BookServiceDialog';
 import { formatPaise, formatTxnDate } from '@/features/wallet/money';
 import { getErrorMessage } from '@/lib/errors';
+import { getStateLabel } from '@/lib/indiaLocations';
 
 const HelperAreaMap = lazy(() => import('@/features/maps/HelperAreaMap'));
 
@@ -157,7 +158,7 @@ export default function HelperProfilePage() {
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                  {[helper.serviceLocation?.city, helper.serviceLocation?.state].filter(Boolean).join(', ')}
+                  {[helper.serviceLocation?.city, getStateLabel(helper.serviceLocation?.state, i18n.language)].filter(Boolean).join(', ')}
                 </span>
                 <span>{t('local.experience', { years: helper.experienceYears })}</span>
                 <span className="font-bold text-teal-800">
@@ -193,9 +194,13 @@ export default function HelperProfilePage() {
             ) : (
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-3">
-                  <Button onClick={() => setBookOpen(true)} className="gap-2 bg-teal-700 text-white hover:bg-teal-800">
+                  <Button
+                    onClick={() => setBookOpen(true)}
+                    disabled={!helper.isAvailable}
+                    className="gap-2 bg-teal-700 text-white hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-500"
+                  >
                     <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-                    {t('bookings.bookService')}
+                    {helper.isAvailable ? t('bookings.bookService') : t('local.unavailable')}
                   </Button>
 
                   {!contact && (

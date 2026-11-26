@@ -757,24 +757,37 @@ async function seed() {
     await Issue.collection.updateOne({ _id: createdIssues[i]._id }, { $set: { createdAt: when } });
   }
 
-  // Seed Local Bookings & Platform Commission flows (covering all 7 categories + provider@samadhan.local)
-  const providers = await Helper.find({ verificationStatus: 'VERIFIED', isHidden: false }).sort({ createdAt: 1 }).limit(14).lean();
+  // Seed Local Bookings & Platform Commission flows (covering real-world service categories + provider@samadhan.local)
+  const providers = await Helper.find({
+    verificationStatus: 'VERIFIED',
+    isHidden: false,
+    categories: { $nin: ['GENERAL_STORE', 'SWEETS_BAKERY'] },
+  }).sort({ createdAt: 1 }).limit(18).lean();
   const bookingSeeds = [
-    { title: 'Airport Cab Morning Pickup', slot: '07:00 AM - 08:30 AM', status: 'COMPLETED', rating: 5, review: 'On-time pickup, clean cab and transparent fare.' },
-    { title: 'Monthly Grocery Bundle Delivery', slot: '05:00 PM - 07:00 PM', status: 'COMPLETED', rating: 5, review: 'Fresh items packed neatly with quick delivery.' },
+    { title: 'Airport Cab Morning Pickup', slot: '07:00 AM - 09:00 AM', status: 'COMPLETED', rating: 5, review: 'On-time pickup, clean cab and transparent fare.' },
+    { title: 'Deep Kitchen & Bathroom Cleaning', slot: '04:00 PM - 06:00 PM', status: 'COMPLETED', rating: 5, review: 'Spotless sink, tiles and sanitization finished on time.' },
     { title: 'Two-Wheeler Brake & Engine Tune-up', slot: '11:00 AM - 01:00 PM', status: 'COMPLETED', rating: 5, review: 'Smooth throttle response after service.' },
-    { title: 'Festival Mithai Gift Box Order', slot: '04:00 PM - 06:00 PM', status: 'COMPLETED', rating: 4, review: 'Authentic taste and hygienic packaging.' },
-    { title: 'Kitchen Sink Leak & Tap Replacement', slot: '10:00 AM - 12:00 PM', status: 'COMPLETED', rating: 5, review: 'Quick repair and neat finish.' },
-    { title: 'Split AC Seasonal Servicing', slot: '02:00 PM - 04:00 PM', status: 'COMPLETED', rating: 4, review: 'Thorough cooling coil wash and gas check.' },
-    { title: 'Sofa Deep Cleaning Slot', slot: '03:00 PM - 05:00 PM', status: 'COMPLETED', rating: 5, review: 'Stains removed cleanly and very polite team.' },
+    { title: 'Main Door Smart Lock & Hinge Repair', slot: '04:00 PM - 06:00 PM', status: 'COMPLETED', rating: 4, review: 'Aligned door latch smoothly with zero noise.' },
+    { title: 'Kitchen Sink Leak & Tap Replacement', slot: '09:00 AM - 11:00 AM', status: 'COMPLETED', rating: 5, review: 'Quick repair and neat finish.' },
+    { title: 'Split AC Seasonal Jet Servicing', slot: '02:00 PM - 04:00 PM', status: 'COMPLETED', rating: 4, review: 'Thorough cooling coil wash and gas check.' },
+    { title: 'Sofa & Upholstery Deep Cleaning', slot: '02:00 PM - 04:00 PM', status: 'COMPLETED', rating: 5, review: 'Stains removed cleanly and very polite team.' },
     { title: 'Evening Railway Station Cab Drop', slot: '06:00 PM - 08:00 PM', status: 'ACCEPTED', rating: 4, review: 'Confirmed immediately with clear pickup details.' },
-    { title: 'Weekly Pantry & Dairy Basket', slot: '09:00 AM - 11:00 AM', status: 'IN_PROGRESS', rating: 5, review: 'Very reliable neighbourhood store.' },
+    { title: 'Master Bedroom Damp Wall Waterproofing', slot: '09:00 AM - 11:00 AM', status: 'IN_PROGRESS', rating: 5, review: 'Clean putty finish and anti-fungal primer coat.' },
     { title: 'Car AC Blower & Filter Inspection', slot: '11:00 AM - 01:00 PM', status: 'PENDING' },
-    { title: 'Custom Birthday Cake Pre-order', slot: '04:00 PM - 06:00 PM', status: 'PENDING' },
+    { title: '1BHK Household Shifting & Packing', slot: '09:00 AM - 11:00 AM', status: 'PENDING' },
     { title: 'Ceiling Fan & Inverter Wiring Check', slot: '11:00 AM - 01:00 PM', status: 'PENDING' },
     { title: 'RO Membrane & Purifier Service', slot: '02:00 PM - 04:00 PM', status: 'ACCEPTED' },
-    { title: 'Wardrobe Hinge & Latch Repair', slot: '03:00 PM - 05:00 PM', status: 'CANCELLED' },
+    { title: 'Wardrobe Hinge & Latch Repair', slot: '04:00 PM - 06:00 PM', status: 'CANCELLED' },
   ];
+
+  // Clean up any stale shop/bakery sample booking names if re-seeding an existing DB
+  await Booking.deleteMany({
+    idempotencyKey: { $regex: /^demo-booking-v3:/ },
+    $or: [
+      { category: { $in: ['GENERAL_STORE', 'SWEETS_BAKERY'] } },
+      { serviceTitle: /Grocery|Mithai|Pantry|Cake/i },
+    ],
+  });
 
   for (let i = 0; i < bookingSeeds.length && providers.length > 0; i += 1) {
     const p = providers[i % providers.length];

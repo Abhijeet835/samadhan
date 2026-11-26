@@ -22,6 +22,12 @@ function esc(s) {
 export async function createBooking({ consumerId, data }) {
   assertNoContactInfo({ serviceTitle: data.serviceTitle, notes: data.notes });
 
+  const todayIst = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  const maxFutureIst = new Date(Date.now() + (90 * 24 * 3600_000) + 5.5 * 3600_000).toISOString().slice(0, 10);
+  if (data.scheduledDate < todayIst || data.scheduledDate > maxFutureIst) {
+    throw new ApiError('Please choose today or an upcoming service date within 90 days.', 400, 'BOOKING_DATE_INVALID');
+  }
+
   const existing = await Booking.findOne({ idempotencyKey: data.idempotencyKey }).lean();
   if (existing) {
     if (String(existing.consumerId) !== String(consumerId)) {
@@ -33,6 +39,9 @@ export async function createBooking({ consumerId, data }) {
   const helper = await Helper.findById(data.helperId).lean();
   if (!helper || helper.verificationStatus !== 'VERIFIED' || helper.isHidden) {
     throw new ApiError('Service provider not found or not available.', 404, 'HELPER_NOT_FOUND');
+  }
+  if (!helper.isAvailable) {
+    throw new ApiError('This service provider is currently marked unavailable.', 409, 'HELPER_UNAVAILABLE');
   }
   if (String(helper.userId) === String(consumerId)) {
     throw new ApiError('You cannot book your own service listing.', 409, 'CANNOT_BOOK_SELF');

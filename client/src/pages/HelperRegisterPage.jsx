@@ -14,6 +14,7 @@ import { uploadPhoto } from '@/features/global/uploadPhoto';
 import { LOCAL_CATEGORIES } from '@/features/local/constants';
 import { INDIA_STATES_AND_UTS, getCitiesForState } from '@/lib/indiaLocations';
 import { getErrorMessage } from '@/lib/errors';
+import { currentLang } from '@/features/global/localizeIssue';
 
 const LocationPicker = lazy(() => import('@/features/maps/LocationPicker'));
 const labelClass = 'mb-1.5 block text-sm font-medium text-slate-700';
@@ -263,7 +264,7 @@ export default function HelperRegisterPage() {
                 <label className={labelClass}>{t('report.fields.stateLabel')}</label>
                 <select className="field-input" value={form.state} onChange={(e) => handleStateChange(e.target.value)}>
                   {INDIA_STATES_AND_UTS.map((s) => (
-                    <option key={s.code} value={s.nameEn}>{i18n.language === 'hi' ? s.nameHi : s.nameEn}</option>
+                    <option key={s.code} value={s.nameEn}>{currentLang(i18n.language) === 'hi' ? s.nameHi : s.nameEn}</option>
                   ))}
                 </select>
               </div>

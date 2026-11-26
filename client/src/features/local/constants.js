@@ -1,25 +1,25 @@
-import { CakeSlice, Car, Cpu, MoreHorizontal, ShoppingBag, Wrench, CarFront } from 'lucide-react';
+import { Car, CarFront, Cpu, Hammer, MoreHorizontal, Paintbrush, Sparkles, Truck, Wrench } from 'lucide-react';
 
 export const LOCAL_CATEGORIES = [
   'CAB_AUTO',
-  'GENERAL_STORE',
-  'GARAGE_MECHANIC',
-  'SWEETS_BAKERY',
   'PLUMBER_ELECTRICIAN',
   'APPLIANCE_REPAIR',
+  'GARAGE_MECHANIC',
+  'HOUSE_CLEANING',
+  'CARPENTER',
+  'PAINTER',
+  'PACKERS_MOVERS',
   'OTHER_LOCAL',
 ];
 
 export const LEGACY_LOCAL_CATEGORY_MAP = {
   CAB_DRIVER: 'CAB_AUTO',
-  GROCERY_DELIVERY: 'GENERAL_STORE',
   PLUMBER: 'PLUMBER_ELECTRICIAN',
   ELECTRICIAN: 'PLUMBER_ELECTRICIAN',
-  HOUSE_CLEANING: 'OTHER_LOCAL',
-  LOCKSMITH: 'OTHER_LOCAL',
-  CARPENTER: 'OTHER_LOCAL',
-  PAINTER: 'OTHER_LOCAL',
-  PACKERS_MOVERS: 'OTHER_LOCAL',
+  LOCKSMITH: 'CARPENTER',
+  GENERAL_STORE: 'OTHER_LOCAL',
+  GROCERY_DELIVERY: 'OTHER_LOCAL',
+  SWEETS_BAKERY: 'OTHER_LOCAL',
 };
 
 export function normalizeLocalCat(cat) {
@@ -28,11 +28,13 @@ export function normalizeLocalCat(cat) {
 
 export const CATEGORY_ICONS = {
   CAB_AUTO: Car,
-  GENERAL_STORE: ShoppingBag,
-  GARAGE_MECHANIC: CarFront,
-  SWEETS_BAKERY: CakeSlice,
   PLUMBER_ELECTRICIAN: Wrench,
   APPLIANCE_REPAIR: Cpu,
+  GARAGE_MECHANIC: CarFront,
+  HOUSE_CLEANING: Sparkles,
+  CARPENTER: Hammer,
+  PAINTER: Paintbrush,
+  PACKERS_MOVERS: Truck,
   OTHER_LOCAL: MoreHorizontal,
 };
 

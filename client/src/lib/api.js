@@ -11,7 +11,7 @@ const BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 30_000,
+  timeout: 45_000,
   headers: { Accept: 'application/json' },
 });
 
@@ -22,7 +22,8 @@ const emit = (name) => { try { window.dispatchEvent(new CustomEvent(name)); } ca
 function trackStart() {
   pending += 1;
   if (pending === 1) {
-    wakeTimer = setTimeout(() => { if (pending > 0) emit('samadhan:waking'); }, 6000);
+    clearTimeout(wakeTimer);
+    wakeTimer = setTimeout(() => { if (pending > 0) emit('samadhan:waking'); }, 4000);
   }
 }
 function trackEnd() {

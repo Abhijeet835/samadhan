@@ -1,8 +1,8 @@
-// SAMPLE DATA — clearly dummy service providers across all 7 marketplace
-// categories (5 verified per category = 35 verified + 2 pending = 37) spanning
-// 14 Indian cities/states, PLUS 8 verified providers clustered around
+// SAMPLE DATA — service providers ONLY (NO retail shops, bakeries, or stationery)
+// across all 9 real-world service categories (5 verified per category = 45 + 2 pending = 47)
+// spanning 14 Indian cities/states, PLUS 8 verified service providers clustered around
 // BIT Mesra / PMC, Ranchi (835215) so the nearby marketplace is demoable.
-// Phones 9000000001..9000000048.
+// Phones 9000000001..9000000060.
 // Primary Demo Provider login: provider@samadhan.local / Demo@12345
 import bcrypt from 'bcrypt';
 
@@ -32,7 +32,7 @@ const LOCATIONS = [
   { city: 'Chandigarh', state: 'Chandigarh', pincode: '160001', centre: [76.7794, 30.7333] },
 ];
 
-// 5 distinct providers per each of the 7 LOCAL_CATEGORIES = 35 verified providers
+// 5 distinct providers per each of the 9 service-only LOCAL_CATEGORIES = 45 verified providers
 const PROVIDERS_BY_CATEGORY = {
   CAB_AUTO: [
     { name: 'Ramesh Auto & Cab Travels', price: 24900, hint: 'From ₹249 / ride' },
@@ -40,27 +40,6 @@ const PROVIDERS_BY_CATEGORY = {
     { name: 'Yatra Express Auto & Taxi', price: 19900, hint: 'From ₹199 local ride' },
     { name: 'GreenWheel Electric Auto Fleet', price: 17900, hint: 'From ₹179 / drop' },
     { name: 'CityLine Intercity Cabs', price: 49900, hint: 'From ₹499 half-day' },
-  ],
-  GENERAL_STORE: [
-    { name: 'Annapurna General Store & Mart', price: 14900, hint: 'From ₹149 / order' },
-    { name: 'DailyNeeds Kirana & Groceries', price: 19900, hint: 'Free delivery ₹199+' },
-    { name: 'Shubham Fresh Ration & Staples', price: 24900, hint: 'Same-hour basket ₹249' },
-    { name: 'Janata Provision & Dairy Store', price: 12900, hint: 'From ₹129 / bundle' },
-    { name: 'Aapka Bazaar Mini Supermarket', price: 29900, hint: 'Express pack ₹299+' },
-  ],
-  GARAGE_MECHANIC: [
-    { name: 'Shakti Auto Garage & Mechanics', price: 39900, hint: 'From ₹399 inspection' },
-    { name: 'Highway Motors & Bike Repair', price: 29900, hint: 'From ₹299 tune-up' },
-    { name: 'Precision Wheel & Dent Workshop', price: 49900, hint: 'From ₹499 full check' },
-    { name: 'Royal Two-Wheeler Service Hub', price: 24900, hint: 'From ₹249 oil service' },
-    { name: 'Battery & Jumpstart Roadside Care', price: 34900, hint: '24x7 dispatch ₹349+' },
-  ],
-  SWEETS_BAKERY: [
-    { name: 'Mithai Mahal Sweets & Bakery', price: 29900, hint: 'From ₹299 / box' },
-    { name: 'Bikaner Fresh Bakery & Mithai', price: 34900, hint: 'Custom cakes ₹349+' },
-    { name: 'Kesar Bhog Pure Ghee Sweets', price: 39900, hint: 'Festive thali ₹399+' },
-    { name: 'OvenCrust Artisan Breads & Cakes', price: 27900, hint: 'Fresh bakes ₹279+' },
-    { name: 'Annapurna Halwai & Snacks', price: 22900, hint: 'Combo pack ₹229+' },
   ],
   PLUMBER_ELECTRICIAN: [
     { name: 'Kaveri Plumbing & Electricals', price: 34900, hint: 'From ₹349 visit' },
@@ -76,25 +55,57 @@ const PROVIDERS_BY_CATEGORY = {
     { name: 'SmartHome Microwave & TV Repair', price: 37900, hint: 'Diagnostics ₹379+' },
     { name: 'ChillAir Split AC Gas & Jet Wash', price: 54900, hint: 'Full AC service ₹549' },
   ],
+  GARAGE_MECHANIC: [
+    { name: 'Shakti Auto Garage & Mechanics', price: 39900, hint: 'From ₹399 inspection' },
+    { name: 'Highway Motors & Bike Repair', price: 29900, hint: 'From ₹299 tune-up' },
+    { name: 'Precision Wheel & Dent Workshop', price: 49900, hint: 'From ₹499 full check' },
+    { name: 'Royal Two-Wheeler Service Hub', price: 24900, hint: 'From ₹249 oil service' },
+    { name: 'Battery & Jumpstart Roadside Care', price: 34900, hint: '24x7 dispatch ₹349+' },
+  ],
+  HOUSE_CLEANING: [
+    { name: 'CleanSpace Home Deep Cleaning', price: 59900, hint: 'From ₹599 / home' },
+    { name: 'SparkleBath & Kitchen Sanitizing', price: 44900, hint: 'From ₹449 deep wash' },
+    { name: 'ShieldGuard Pest & Termite Care', price: 69900, hint: 'From ₹699 spray' },
+    { name: 'PureTank Overhead Water Tank Wash', price: 39900, hint: 'Tank scrub ₹399+' },
+    { name: 'SofaVac Carpet & Mattress Spa', price: 49900, hint: 'From ₹499 dry foam' },
+  ],
+  CARPENTER: [
+    { name: 'Vishwakarma Carpentry & Furniture', price: 39900, hint: 'From ₹399 repair' },
+    { name: 'SafeKey Locksmith & Door Latch Fix', price: 24900, hint: 'Lock unlock ₹249+' },
+    { name: 'WoodCraft Modular Kitchen & Hinges', price: 49900, hint: 'From ₹499 visit' },
+    { name: 'ShutterFix Aluminium & Mesh Work', price: 34900, hint: 'Window mesh ₹349+' },
+    { name: 'Artisan Wardrobe & Bed Assembly', price: 44900, hint: 'Assembly ₹449+' },
+  ],
+  PAINTER: [
+    { name: 'Rangoli Wall Painters & Polish', price: 69900, hint: 'Room quote ₹699+' },
+    { name: 'AquaSeal Damp & Terrace Waterproofing', price: 79900, hint: 'Inspection ₹799+' },
+    { name: 'FinishTouch Putty & Texture Craft', price: 59900, hint: 'Per wall ₹599+' },
+    { name: 'FreshCoat Rental Move-Out Painting', price: 89900, hint: 'Express pack ₹899+' },
+    { name: 'WoodGlow Enamel & Grill Painting', price: 49900, hint: 'Gate/grill ₹499+' },
+  ],
+  PACKERS_MOVERS: [
+    { name: 'Sahayak Home & Shifting Services', price: 99900, hint: 'From ₹999 local move' },
+    { name: 'SafeTransit Packers & Tempo Care', price: 119900, hint: 'Mini tempo ₹1,199+' },
+    { name: 'EasyShift Hostel & PG Luggage Move', price: 59900, hint: 'Hostel shift ₹599+' },
+    { name: 'ProLoad Appliances & Furniture Shifting', price: 89900, hint: '2 helpers ₹899+' },
+    { name: 'CityHop Office & Desk Relocation', price: 149900, hint: 'Team quote ₹1,499+' },
+  ],
   OTHER_LOCAL: [
-    { name: 'Sahayak Home & Shifting Services', price: 49900, hint: 'From ₹499 / job' },
-    { name: 'CleanSpace Home & Pest Care', price: 59900, hint: 'From ₹599 deep clean' },
-    { name: 'Vishwakarma Carpentry & Furniture', price: 39900, hint: 'Custom joinery ₹399+' },
-    { name: 'SafeKey Locksmith & Grill Weld', price: 24900, hint: 'Lock repair ₹249+' },
-    { name: 'Rangoli Wall Painters & Waterproofing', price: 69900, hint: 'Room quote ₹699+' },
+    { name: 'GreenThumb Lawn & Garden Care', price: 34900, hint: 'Garden trim ₹349+' },
+    { name: 'IronWeld Balcony Grill & Gate Welding', price: 39900, hint: 'On-site weld ₹399+' },
+    { name: 'SolarWash Rooftop Panel Cleaning', price: 29900, hint: 'Per kW ₹299+' },
+    { name: 'QuickCourier Local Document Runner', price: 19900, hint: 'Pickup/drop ₹199+' },
+    { name: 'SafeNet CCTV Camera Install & Tune', price: 49900, hint: 'Camera check ₹499+' },
   ],
 };
 
 const BIOS = [
-  'Verified neighbourhood service provider offering transparent upfront pricing, timely arrival, and quality service.',
-  'Experienced local shop and technician team serving nearby homes and commuters with dependable daily support.',
-  'Trusted community provider with verified service standards, clear estimates, and responsive booking updates.',
+  'Verified neighbourhood service provider offering transparent upfront pricing, timely arrival, and quality workmanship.',
+  'Experienced local technician and service specialist serving nearby homes and commuters with dependable scheduled visits.',
+  'Trusted community service provider with verified skills, clear upfront rates, and live booking updates.',
 ];
 
-// Verified demo listings inside/around BIT Mesra campus and PMC, Ranchi.
-// Names are based on real nearby landmarks/businesses found on OpenStreetMap
-// (MS Xerox, Hot 'N' Cold, PSS Mart, Vashnavi auto service); coordinates are
-// approximate sample locations for the prototype, not exact shop pins.
+// Verified demo service listings around BIT Mesra campus and PMC, Ranchi (service-only — no shops/bakery/stationery).
 const BIT_MESRA_PROVIDERS = [
   {
     name: 'Mesra Campus Cab & Auto',
@@ -107,34 +118,14 @@ const BIT_MESRA_PROVIDERS = [
     address: 'BIT Mesra Main Gate, Mesra, Ranchi',
   },
   {
-    name: 'BIT Mesra Campus Mart',
-    displayName: 'BIT Mesra Campus Mart — Mesra',
-    category: 'GENERAL_STORE',
-    price: 12900,
-    hint: 'From ₹129 / basket',
-    lng: 85.4395,
-    lat: 23.418,
-    address: 'Campus Shopping Complex, BIT Mesra, Ranchi',
-  },
-  {
     name: 'Vashnavi Auto Service',
-    displayName: 'Vashnavi Auto Service — BIT Road, Mesra',
+    displayName: 'Vashnavi Auto Garage — BIT Road, Mesra',
     category: 'GARAGE_MECHANIC',
     price: 39900,
     hint: 'From ₹399 inspection',
     lng: 85.4325,
     lat: 23.4146,
     address: 'BIT Road, Mesra, Ranchi',
-  },
-  {
-    name: "Hot 'N' Cold Bakery",
-    displayName: "Hot 'N' Cold Bakery — Mesra South Gate",
-    category: 'SWEETS_BAKERY',
-    price: 24900,
-    hint: 'Cakes & bakes ₹249+',
-    lng: 85.4411299,
-    lat: 23.4118828,
-    address: 'Mesra South Gate, Ranchi',
   },
   {
     name: 'Mesra Plumbing & Electricals',
@@ -148,7 +139,7 @@ const BIT_MESRA_PROVIDERS = [
   },
   {
     name: 'CoolCare Appliance Repair',
-    displayName: 'CoolCare Appliance Repair — PMC Colony, Mesra',
+    displayName: 'CoolCare AC & Appliance Tech — PMC Colony',
     category: 'APPLIANCE_REPAIR',
     price: 37900,
     hint: 'From ₹379 checkup',
@@ -157,21 +148,41 @@ const BIT_MESRA_PROVIDERS = [
     address: 'PMC Colony, Mesra, Ranchi',
   },
   {
-    name: 'MS Xerox & Stationery',
-    displayName: 'MS Xerox & Stationery — BIT Road, Mesra',
-    category: 'OTHER_LOCAL',
-    price: 9900,
-    hint: 'Print pack ₹99+',
+    name: 'Mesra CleanSpace Home Care',
+    displayName: 'Mesra CleanSpace Deep Cleaning — BIT Mesra',
+    category: 'HOUSE_CLEANING',
+    price: 49900,
+    hint: 'From ₹499 / deep clean',
+    lng: 85.4395,
+    lat: 23.418,
+    address: 'Campus Residential Road, BIT Mesra, Ranchi',
+  },
+  {
+    name: 'Kanke Road Carpenter & Locksmith',
+    displayName: 'Kanke Road Carpenter & Locksmith — Mesra',
+    category: 'CARPENTER',
+    price: 29900,
+    hint: 'From ₹299 / lock or latch',
+    lng: 85.4411299,
+    lat: 23.4118828,
+    address: 'Mesra South Gate Road, Ranchi',
+  },
+  {
+    name: 'Ranchi Wall Painters & Seal',
+    displayName: 'Ranchi Wall Painters & Waterproofing — BIT Road',
+    category: 'PAINTER',
+    price: 59900,
+    hint: 'Per room ₹599+',
     lng: 85.4358414,
     lat: 23.416672,
     address: 'BIT Road, Mesra, Ranchi',
   },
   {
-    name: 'PSS Mart',
-    displayName: 'PSS Mart — Kanke Road, Mesra',
-    category: 'GENERAL_STORE',
-    price: 19900,
-    hint: 'Grocery delivery ₹199+',
+    name: 'CampusShift Hostel Packers',
+    displayName: 'CampusShift Packers & Movers — Kanke Road',
+    category: 'PACKERS_MOVERS',
+    price: 59900,
+    hint: 'Hostel & home shift ₹599+',
     lng: 85.4133726,
     lat: 23.4309448,
     address: 'Kanke Road, Mesra, Ranchi',
@@ -279,6 +290,15 @@ function buildProviders() {
 
 async function seed() {
   await connectDB();
+  // Ensure legacy shop/bakery/stationery sample listings are never left behind on re-seed
+  await Helper.deleteMany({
+    isSample: true,
+    $or: [
+      { categories: { $in: ['GENERAL_STORE', 'SWEETS_BAKERY'] } },
+      { displayName: /Bakery|Mithai|Halwai|OvenCrust|General Store|Kirana|Ration|Provision|Supermarket|Campus Mart|PSS Mart|Xerox|Stationery/i },
+    ],
+  });
+
   const demoPass = await bcrypt.hash('Demo@12345', 10);
   const legacyPass = await bcrypt.hash('Helper@12345', 10);
   let created = 0;

@@ -30,6 +30,7 @@ import {
   saveLocalLocation,
 } from '@/features/local/constants';
 import { INDIA_STATES_AND_UTS } from '@/lib/indiaLocations';
+import { currentLang } from '@/features/global/localizeIssue';
 
 const HelperMap = lazy(() => import('@/features/maps/HelperMap'));
 
@@ -275,9 +276,9 @@ export default function LocalHomePage() {
         </div>
       </div>
 
-      {/* Interactive 7-Category Cards */}
+      {/* Interactive Real-World Service Categories */}
       <h2 className="mt-7 text-sm font-bold uppercase tracking-wider text-slate-500">{t('local.categoriesTitle')}</h2>
-      <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
+      <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
         <button
           type="button"
           onClick={() => {
@@ -425,7 +426,7 @@ export default function LocalHomePage() {
             <option value="">{t('issues.feed.stateAll')}</option>
             {INDIA_STATES_AND_UTS.map((s) => (
               <option key={s.code} value={s.nameEn}>
-                {i18n.language === 'hi' ? s.nameHi : s.nameEn}
+                {currentLang(i18n.language) === 'hi' ? s.nameHi : s.nameEn}
               </option>
             ))}
           </select>
@@ -559,29 +560,33 @@ export default function LocalHomePage() {
       </div>
 
       {/* Bottom Provider Onboarding CTAs */}
-      <div className="mt-12 grid gap-4 sm:grid-cols-2">
-        <Link
-          to="/local/register"
-          className="surface-card-hover group border-teal-200 bg-gradient-to-br from-teal-50 to-white p-5"
-        >
-          <UserPlus className="h-6 w-6 text-teal-700" aria-hidden="true" />
-          <p className="mt-2 font-bold text-slate-900">{t('local.registerCta')}</p>
-          <p className="mt-1 text-sm text-slate-500">{t('local.registerHint')}</p>
-          <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-teal-700">
-            {t('local.getStarted')}{' '}
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          </span>
-        </Link>
-        <Link to="/local/dashboard" className="surface-card-hover group p-5">
-          <ShieldCheck className="h-6 w-6 text-slate-700" aria-hidden="true" />
-          <p className="mt-2 font-bold text-slate-900">{t('local.dashboardCta')}</p>
-          <p className="mt-1 text-sm text-slate-500">{t('local.dashboardHint')}</p>
-          <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-slate-700">
-            {t('nav.providerHub')}{' '}
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          </span>
-        </Link>
-      </div>
+      {user?.role !== 'ADMIN' && (
+        <div className={cn('mt-12 grid gap-4', (user?.role === 'PROVIDER' || user?.hasHelperProfile) ? 'sm:grid-cols-1 max-w-xl' : 'sm:grid-cols-2')}>
+          {!(user?.role === 'PROVIDER' || user?.hasHelperProfile) && (
+            <Link
+              to="/local/register"
+              className="surface-card-hover group border-teal-200 bg-gradient-to-br from-teal-50 to-white p-5"
+            >
+              <UserPlus className="h-6 w-6 text-teal-700" aria-hidden="true" />
+              <p className="mt-2 font-bold text-slate-900">{t('local.registerCta')}</p>
+              <p className="mt-1 text-sm text-slate-500">{t('local.registerHint')}</p>
+              <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-teal-700">
+                {t('local.getStarted')}{' '}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+              </span>
+            </Link>
+          )}
+          <Link to="/local/dashboard" className="surface-card-hover group p-5">
+            <ShieldCheck className="h-6 w-6 text-slate-700" aria-hidden="true" />
+            <p className="mt-2 font-bold text-slate-900">{t('local.dashboardCta')}</p>
+            <p className="mt-1 text-sm text-slate-500">{t('local.dashboardHint')}</p>
+            <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-slate-700">
+              {t('nav.providerHub')}{' '}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </span>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

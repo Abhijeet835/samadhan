@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { LOCAL_CATEGORIES, normalizeLocalCat } from '@/features/local/constants';
 import { formatPaise, formatTxnDate } from '@/features/wallet/money';
 import { getErrorMessage } from '@/lib/errors';
+import { getStateLabel } from '@/lib/indiaLocations';
 import { useNotifications } from '@/features/notifications/useNotifications';
 
 const DASHBOARD_TABS = ['bookings', 'contacts', 'profile', 'reviews'];
@@ -292,7 +293,7 @@ export default function HelperDashboardPage() {
                       <p className="text-xs text-slate-500">
                         {b.consumerName} · {b.scheduledDate} ({b.timeSlot})
                       </p>
-                      <p className="mt-1 text-xs text-slate-600">{[b.serviceAddress?.address, b.serviceAddress?.city, b.serviceAddress?.state].filter(Boolean).join(', ')}</p>
+                      <p className="mt-1 text-xs text-slate-600">{[b.serviceAddress?.address, b.serviceAddress?.city, getStateLabel(b.serviceAddress?.state, i18n.language)].filter(Boolean).join(', ')}</p>
                     </div>
                     <div className="text-right text-xs">
                       <p className="text-base font-extrabold tabular-nums text-slate-900">{formatPaise(b.amountPaise, i18n.language)}</p>

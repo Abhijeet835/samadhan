@@ -18,12 +18,14 @@ const ISSUE_PINS = {
 
 const HELPER_PINS = {
   CAB_AUTO: { color: '#ca8a04', glyph: '🚕' },
-  GENERAL_STORE: { color: '#0f766e', glyph: '🛒' },
-  GARAGE_MECHANIC: { color: '#475569', glyph: '🛞' },
-  SWEETS_BAKERY: { color: '#db2777', glyph: '🍰' },
   PLUMBER_ELECTRICIAN: { color: '#0284c7', glyph: '🔧' },
   APPLIANCE_REPAIR: { color: '#7c3aed', glyph: '🔌' },
-  OTHER_LOCAL: { color: '#16a34a', glyph: '🏪' },
+  GARAGE_MECHANIC: { color: '#475569', glyph: '🛞' },
+  HOUSE_CLEANING: { color: '#0f766e', glyph: '🧹' },
+  CARPENTER: { color: '#b45309', glyph: '🪚' },
+  PAINTER: { color: '#db2777', glyph: '🎨' },
+  PACKERS_MOVERS: { color: '#2563eb', glyph: '🚚' },
+  OTHER_LOCAL: { color: '#16a34a', glyph: '🛠' },
 };
 
 const escapeAttr = (value) =>

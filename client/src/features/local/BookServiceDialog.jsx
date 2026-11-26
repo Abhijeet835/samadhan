@@ -11,13 +11,28 @@ import { formatPaise } from '@/features/wallet/money';
 import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/errors';
 
-const TIME_SLOTS = [
-  '09:00 AM - 11:00 AM',
-  '11:00 AM - 01:00 PM',
-  '02:00 PM - 04:00 PM',
-  '04:00 PM - 06:00 PM',
-  '06:00 PM - 08:00 PM',
+const SERVICE_SLOTS = [
+  { label: '07:00 AM - 09:00 AM', startHour: 7 },
+  { label: '09:00 AM - 11:00 AM', startHour: 9 },
+  { label: '11:00 AM - 01:00 PM', startHour: 11 },
+  { label: '02:00 PM - 04:00 PM', startHour: 14 },
+  { label: '04:00 PM - 06:00 PM', startHour: 16 },
+  { label: '06:00 PM - 08:00 PM', startHour: 18 },
+  { label: '08:00 PM - 10:00 PM', startHour: 20 },
 ];
+
+function localDateStr(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function isSlotPassed(slot, selectedDate) {
+  if (selectedDate !== localDateStr(0)) return false;
+  return new Date().getHours() >= slot.startHour;
+}
 
 export default function BookServiceDialog({ helper, open, onClose, onBooked }) {
   const { t, i18n } = useTranslation();
@@ -25,10 +40,12 @@ export default function BookServiceDialog({ helper, open, onClose, onBooked }) {
   const location = useLocation();
   const { isAuthenticated, user } = useAuth();
 
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = localDateStr(0);
+  const tomorrow = localDateStr(1);
+  const maxDate = localDateStr(60);
   const [serviceTitle, setServiceTitle] = useState('');
   const [scheduledDate, setScheduledDate] = useState(tomorrow);
-  const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[0]);
+  const [timeSlot, setTimeSlot] = useState(SERVICE_SLOTS[1].label);
   const [address, setAddress] = useState(user?.homeLocation?.address || '');
   const [city, setCity] = useState(helper?.serviceLocation?.city || user?.homeLocation?.city || '');
   const [state, setState] = useState(helper?.serviceLocation?.state || user?.homeLocation?.state || '');
@@ -53,6 +70,18 @@ export default function BookServiceDialog({ helper, open, onClose, onBooked }) {
       api.get('/wallet').then((res) => setBalance(res.data.wallet.balancePaise)).catch(() => {});
     }
   }, [open, helper, isAuthenticated, user, t]);
+
+  function handleDateChange(nextDate) {
+    setScheduledDate(nextDate);
+    const active = SERVICE_SLOTS.find((s) => s.label === timeSlot);
+    if (!active || isSlotPassed(active, nextDate)) {
+      const nextValid = SERVICE_SLOTS.find((s) => !isSlotPassed(s, nextDate));
+      if (nextValid) setTimeSlot(nextValid.label);
+    }
+  }
+
+  const allSlotsPassedToday = SERVICE_SLOTS.every((s) => isSlotPassed(s, scheduledDate));
+  const selectedSlotInvalid = allSlotsPassedToday || isSlotPassed(SERVICE_SLOTS.find((s) => s.label === timeSlot) ?? SERVICE_SLOTS[0], scheduledDate);
 
   async function submit(e) {
     e.preventDefault();
@@ -123,12 +152,19 @@ export default function BookServiceDialog({ helper, open, onClose, onBooked }) {
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-700">{t('bookings.dateLabel')}</label>
-              <input required type="date" min={new Date().toISOString().slice(0, 10)} className="field-input" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+              <input required type="date" min={today} max={maxDate} className="field-input" value={scheduledDate} onChange={(e) => handleDateChange(e.target.value)} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-700">{t('bookings.slotLabel')}</label>
               <select className="field-input" value={timeSlot} onChange={(e) => setTimeSlot(e.target.value)}>
-                {TIME_SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                {SERVICE_SLOTS.map((s) => {
+                  const passed = isSlotPassed(s, scheduledDate);
+                  return (
+                    <option key={s.label} value={s.label} disabled={passed}>
+                      {passed ? `${s.label} (${t('bookings.slotPassed')})` : s.label}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
@@ -148,6 +184,12 @@ export default function BookServiceDialog({ helper, open, onClose, onBooked }) {
             <textarea rows={2} maxLength={400} className="field-input" placeholder={t('bookings.notesPlaceholder')} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
 
+          {!helper?.isAvailable && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
+              {t('bookings.helperUnavailable')}
+            </div>
+          )}
+
           {(insufficient || (balance !== null && balance < amountPaise)) && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
               <p className="font-semibold">{t('support.insufficient')}</p>
@@ -159,7 +201,7 @@ export default function BookServiceDialog({ helper, open, onClose, onBooked }) {
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>{t('common.cancel')}</Button>
             <Button
               type="submit"
-              disabled={pending || (balance !== null && balance < amountPaise)}
+              disabled={pending || !helper?.isAvailable || selectedSlotInvalid || (balance !== null && balance < amountPaise)}
               className="gap-1.5 bg-teal-700 hover:bg-teal-800"
             >
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}

@@ -396,4 +396,56 @@ describe('Global Mode: Dynamic importance limits, Pool Funds, Resolution & India
     expect(raj.total).toBeGreaterThanOrEqual(1);
     expect(raj.resolved).toBeGreaterThanOrEqual(1);
   });
+
+  it('enforces service-only Local categories, rejects past booking dates and unavailable providers', async () => {
+    const meta = await request(app).get('/api/helpers/meta');
+    expect(meta.status).toBe(200);
+    expect(meta.body.data.categories).toEqual([
+      'CAB_AUTO',
+      'PLUMBER_ELECTRICIAN',
+      'APPLIANCE_REPAIR',
+      'GARAGE_MECHANIC',
+      'HOUSE_CLEANING',
+      'CARPENTER',
+      'PAINTER',
+      'PACKERS_MOVERS',
+      'OTHER_LOCAL',
+    ]);
+    expect(meta.body.data.categories).not.toContain('GENERAL_STORE');
+    expect(meta.body.data.categories).not.toContain('SWEETS_BAKERY');
+
+    const consumer = await makeFundedUser({ balancePaise: 100000 });
+    const { helper } = await makeProviderListing();
+
+    const pastRes = await request(app)
+      .post('/api/bookings')
+      .set('Authorization', `Bearer ${tokenFor(consumer)}`)
+      .send({
+        helperId: String(helper._id),
+        category: 'APPLIANCE_REPAIR',
+        serviceTitle: 'AC gas refill check',
+        scheduledDate: '2020-01-01',
+        timeSlot: '09:00 AM - 11:00 AM',
+        serviceAddress: { address: '12 Residency Road', city: 'Bengaluru', state: 'Karnataka', pincode: '560001' },
+        idempotencyKey: `bk:${Math.random().toString(36).slice(2)}`,
+      });
+    expect(pastRes.status).toBe(400);
+    expect(pastRes.body.error.code).toBe('BOOKING_DATE_INVALID');
+
+    await Helper.updateOne({ _id: helper._id }, { $set: { isAvailable: false } });
+    const unavailRes = await request(app)
+      .post('/api/bookings')
+      .set('Authorization', `Bearer ${tokenFor(consumer)}`)
+      .send({
+        helperId: String(helper._id),
+        category: 'APPLIANCE_REPAIR',
+        serviceTitle: 'AC gas refill check',
+        scheduledDate: '2026-12-10',
+        timeSlot: '09:00 AM - 11:00 AM',
+        serviceAddress: { address: '12 Residency Road', city: 'Bengaluru', state: 'Karnataka', pincode: '560001' },
+        idempotencyKey: `bk:${Math.random().toString(36).slice(2)}`,
+      });
+    expect(unavailRes.status).toBe(409);
+    expect(unavailRes.body.error.code).toBe('HELPER_UNAVAILABLE');
+  });
 });
